@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#7b4b31">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Café na Rota">
+    <link rel="apple-touch-icon" href="assets/icon-512.png">
+    <link rel="manifest" href="manifest.json">
+    <title>Café na Rota</title>
+    <link rel="stylesheet" href="styles.css?v=20240319_1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Ionicons para iconografia -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="logo">
+            <img src="assets/logo.png" alt="Logo Café">
+            <h1>Café na Rota</h1>
+        </div>
+        <button id="theme-toggle" class="icon-btn" aria-label="Alternar Tema">
+            <ion-icon name="moon-outline"></ion-icon>
+        </button>
+    </header>
+
+    <main class="app-content">
+        <!-- VIEW: DASHBOARD -->
+        <section id="view-dashboard" class="view active">
+            <h2>Dashboard</h2>
+            
+            <div class="caixa-resumo">
+                <p>Apurado Hoje</p>
+                <h3 id="dash-caixa">R$ 0,00</h3>
+                <div class="lucro-badge" id="dash-lucro-hoje">Lucro Hoje: R$ 0,00</div>
+            </div>
+
+            <div class="cards-grid">
+                <div class="card stat-card">
+                    <ion-icon name="wallet"></ion-icon>
+                    <div>
+                        <p>Saldo Global</p>
+                        <h4 id="dash-caixa-global">R$ 0,00</h4>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <ion-icon name="cafe-outline"></ion-icon>
+                    <div>
+                        <p>Copos Hoje</p>
+                        <h4 id="dash-copos">0</h4>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    <div>
+                        <p>Lucro Semanal</p>
+                        <h4 id="dash-lucro-sem">R$ 0,00</h4>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <ion-icon name="calendar"></ion-icon>
+                    <div>
+                        <p>Lucro Mensal</p>
+                        <h4 id="dash-lucro-mes">R$ 0,00</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card alerts-card">
+                <h3>Tendências e Rendimento Médio</h3>
+                <ul id="dash-alerts-list">
+                    <li>Calculando inteligência de negócio...</li>
+                </ul>
+            </div>
+
+            <div class="card break-even-card">
+                <h3>Progresso do Investimento</h3>
+                <p class="roi-text">Faltam <strong>R$ <span id="dash-roi-falta">0,00</span></strong> para cobrir o investimento inicial.</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="roi-progress"></div>
+                </div>
+                <p class="roi-perc" id="roi-perc-text">0% concluído</p>
+            </div>
+        </section>
+
+        <!-- VIEW: LANÇAMENTOS -->
+        <section id="view-lancamentos" class="view">
+            <h2>Caixa & Lançamentos</h2>
+            
+            <div class="tabs">
+                <button class="tab-btn active" data-target="form-entrada">Entrada</button>
+                <button class="tab-btn" data-target="form-saida">Saída</button>
+            </div>
+
+            <form id="form-entrada" class="form-panel active">
+                <div class="input-group">
+                    <label for="entrada-data">Data (Deixe em branco para Hoje)</label>
+                    <input type="date" id="entrada-data">
+                </div>
+                <div class="input-group">
+                    <label for="entrada-vendas">Apurado Total do Dia (R$)</label>
+                    <input type="number" id="entrada-vendas" step="0.01" min="0" placeholder="Ex: 120.50" required>
+                    <p class="text-sm var-text-muted mt-1">*O valor de gorjetas já está embutido no dinheiro/pix total que você trouxe e aumentará seu ticket médio automaticamente.</p>
+                </div>
+                <button type="submit" class="btn btn-primary btn-large">Registrar Entrada</button>
+            </form>
+
+            <form id="form-saida" class="form-panel">
+                <div class="input-group">
+                    <label for="saida-data">Data da Compra/Saída (Opcional)</label>
+                    <input type="date" id="saida-data">
+                </div>
+                <div class="input-group">
+                    <label for="saida-valor">Valor da Retirada/Compra (R$)</label>
+                    <input type="number" id="saida-valor" step="0.01" min="0.01" placeholder="Ex: 15.00" required>
+                </div>
+                <div class="input-group">
+                    <label for="saida-justificativa">Justificativa da Saída (Obrigatório)</label>
+                    <input type="text" id="saida-justificativa" placeholder="O que você comprou? Ex: Garrafa, Gelo..." required>
+                </div>
+                <button type="submit" class="btn btn-danger btn-large">Registrar Saída</button>
+            </form>
+
+            <div class="recent-transactions">
+                <h3>Transações de Hoje</h3>
+                <ul id="transactions-list">
+                    <!-- Preenchido via JS -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- VIEW: ESTOQUE -->
+        <section id="view-estoque" class="view">
+            <h2>Controle de Estoque</h2>
+            <p class="subtitle">Adicione as compras de estoque ou feche o dia informando o que sobrou.</p>
+
+            <div class="estoque-list" id="lista-insumos">
+                <!-- Item de Estoque (Template) -->
+                <!-- Preenchido via JS -->
+            </div>
+            
+            <button class="btn btn-secondary mt-1" id="btn-novo-produto">
+                <ion-icon name="add-circle-outline"></ion-icon> Novo Produto Base
+            </button>
+            
+            <button class="btn btn-primary btn-large mt-1" id="btn-fechar-turno">
+                <ion-icon name="checkmark-done-circle"></ion-icon> Informar Sobras (Fim do Dia)
+            </button>
+
+            <div class="card mt-2">
+                <h3>Histórico de Compras (Período X)</h3>
+                <ul id="lista-compras-estoque" class="historico-lista">
+                    <!-- Preenchido via JS -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- VIEW: RELATÓRIOS -->
+        <section id="view-relatorios" class="view">
+            <h2>Dashboard Analítico (BI)</h2>
+            
+            <div class="filter-bar mb-1">
+                <button class="btn btn-secondary btn-sm active" data-period="7">7 Dias</button>
+                <button class="btn btn-secondary btn-sm" data-period="15">15 Dias</button>
+                <button class="btn btn-secondary btn-sm" data-period="30">30 Dias</button>
+            </div>
+
+            <div class="kpi-grid">
+                <!-- Totais Globais (Todo o Histórico) -->
+                <div class="card stat-card global-kpi">
+                    <p>Vendas Total (Geral)</p>
+                    <h4 id="rel-vendas-total">R$ 0,00</h4>
+                </div>
+                <div class="card stat-card global-kpi">
+                    <p>Gasto Total (Geral)</p>
+                    <h4 id="rel-gasto-total">R$ 0,00</h4>
+                </div>
+                <div class="card stat-card global-kpi">
+                    <p>Lucro Total (Geral)</p>
+                    <h4 id="rel-lucro-total">R$ 0,00</h4>
+                </div>
+
+                <!-- Métricas do Período Selecionado -->
+                <div class="card stat-card">
+                    <p>Vendas no Período</p>
+                    <h4 id="rel-vendas-semana">R$ 0,00</h4>
+                </div>
+                <div class="card stat-card">
+                    <p>Gasto no Período</p>
+                    <h4 id="rel-gasto-semana">R$ 0,00</h4>
+                </div>
+                <div class="card stat-card">
+                    <p>Lucro no Período</p>
+                    <h4 id="rel-lucro-semana">R$ 0,00</h4>
+                </div>
+                
+                <div class="card stat-card">
+                    <p>Média Diária (Vendas)</p>
+                    <h4 id="rel-media-vendas">R$ 0,00</h4>
+                </div>
+                <div class="card stat-card">
+                    <p>Ticket Médio (Vendas)</p>
+                    <h4 id="rel-ticket-medio">R$ 0,00</h4>
+                </div>
+                <div class="card stat-card">
+                    <p>Melhor Dia</p>
+                    <h4 id="rel-melhor-dia">-</h4>
+                </div>
+            </div>
+
+            <div class="card chart-container mt-1">
+                <h3>Tendência de Lucratividade</h3>
+                <canvas id="chart-lucro"></canvas>
+            </div>
+
+            <div class="card chart-container mt-1">
+                <h3>Desempenho por Dia da Semana</h3>
+                <canvas id="chart-dias"></canvas>
+            </div>
+            
+            <div class="historico-dias mt-2">
+                <h3>Detalhamento Diário</h3>
+                <ul id="historico-list">
+                    <!-- Preenchido via JS -->
+                </ul>
+            </div>
+            
+            <div class="config-section mt-2">
+                <h3>Configurações Iniciais</h3>
+                <div class="input-group">
+                    <label for="config-investimento">Investimento Inicial Total (R$)</label>
+                    <input type="number" id="config-investimento" step="0.01" min="0">
+                    <button id="btn-salvar-investimento" class="btn btn-secondary mt-1">Atualizar Investimento</button>
+                </div>
+                
+                <button id="btn-reset-dados" class="btn btn-danger mt-1 text-sm">
+                    <ion-icon name="warning"></ion-icon> Apagar Todos os Dados do Banco
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="#dashboard" class="nav-item active" data-view="dashboard">
+            <ion-icon name="grid"></ion-icon>
+            <span>Início</span>
+        </a>
+        <a href="#lancamentos" class="nav-item" data-view="lancamentos">
+            <ion-icon name="wallet"></ion-icon>
+            <span>Caixa</span>
+        </a>
+        <a href="#estoque" class="nav-item" data-view="estoque">
+            <ion-icon name="cube"></ion-icon>
+            <span>Estoque</span>
+        </a>
+        <a href="#relatorios" class="nav-item" data-view="relatorios">
+            <ion-icon name="bar-chart"></ion-icon>
+            <span>Relatórios</span>
+        </a>
+    </nav>
+
+    <!-- Modais Overlay -->
+    <div id="modal-produto" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Adicionar Produto</h3>
+            <div class="input-group">
+                <label>Nome</label>
+                <input type="text" id="novo-produto-nome" placeholder="Ex: Copo 100ml / Café 3 Corações">
+            </div>
+            <div class="input-group">
+                <label>Categoria</label>
+                <select id="novo-produto-cat">
+                    <option value="insumo">Insumo Consumível (Ex: Copos, Açúcar, Pó)</option>
+                    <option value="ativo">Ativo Fixo (Ex: Garrafa, Caixa de Isopor)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Unidade de Medida</label>
+                <select id="novo-produto-un">
+                    <option value="un">Unidades (un)</option>
+                    <option value="g">Gramas (g)</option>
+                    <option value="kg">Quilogramas (kg)</option>
+                    <option value="ml">Mililitros (ml)</option>
+                    <option value="L">Litros (L)</option>
+                </select>
+            </div>
+            <!-- Campo de capacidade oculto: Sistema calculará automaticamente baseado em 100ml/copo -->
+            <input type="hidden" id="novo-produto-capacidade" value="100">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="btn-cancelar-produto">Cancelar</button>
+                <button class="btn btn-primary" id="btn-salvar-produto">Salvar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Adicionar Compra de Estoque -->
+    <div id="modal-compra-estoque" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Adicionar ao Estoque Total</h3>
+            <p id="compra-estoque-nome-produto" class="mb-1 text-sm"></p>
+            <div class="input-group">
+                <label>Data da Compra (Opcional)</label>
+                <input type="date" id="compra-estoque-data">
+            </div>
+            <div class="input-group">
+                <label>Quantidade Comprada (+)</label>
+                <input type="number" id="compra-estoque-qtd" placeholder="Ex: 10" min="1">
+            </div>
+            <div class="input-group">
+                <label>Valor Pago Total (R$)</label>
+                <input type="number" id="compra-estoque-valor" step="0.01" min="0" placeholder="Ex: 15.50">
+                <p class="text-sm var-text-muted mt-1">*Esse valor será deduzido como uma Despesa automaticamente.</p>
+            </div>
+            <input type="hidden" id="compra-estoque-id">
+            <div class="modal-actions mt-2">
+                <button class="btn btn-clean text-xs pull-left" id="btn-cadastrar-na-compra" style="color:var(--primary-color)">+ Cadastrar Novo</button>
+                <button class="btn btn-secondary" id="btn-cancelar-compra">Cancelar</button>
+                <button class="btn btn-primary" id="btn-salvar-compra">Adicionar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Turno Checkout -->
+    <div id="modal-turno" class="modal-overlay hidden">
+        <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
+            <h3>Contagem de Fim de Dia / Semana</h3>
+            <p class="text-sm var-text-muted mb-1">Conte apenas os Insumos que restaram (Açúcar, Café, Copos) da data referida. O sistema já não pede a contagem das Garrafas Térmicas (Ativos).</p>
+            <div class="input-group">
+                <label for="turno-data">Data de Referência da Contagem (Opcional)</label>
+                <input type="date" id="turno-data">
+            </div>
+            <div id="turno-items-list" class="turno-grid">
+                <!-- Inputs dinâmicos de retorno -->
+            </div>
+            <div class="modal-actions mt-2">
+                <button class="btn btn-secondary" id="btn-cancelar-turno">Cancelar</button>
+                <button class="btn btn-primary" id="btn-salvar-turno">Calcular Vendas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registro de Service Worker para PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log('Service Worker registrado:', reg);
+                        reg.update(); // Força a busca por atualizações
+                    })
+                    .catch(err => console.log('Erro ao registrar SW:', err));
+            });
+        }
+    </script>
+    
+    <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
+    <script src="app.js?v=20240319_12"></script>
+</body>
+</html>
