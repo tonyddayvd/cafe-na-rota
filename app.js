@@ -22,7 +22,9 @@ let state = {
     investimento_inicial: 0,
     produtos: [],           // da tabela 'produtos'
     estoque_total: {},      // Mapeia id_produto -> qtde total via 'estoque_total'
-    compras: []             // tabela 'compras'
+    compras: [],            // tabela 'compras'
+    metas: [],              // tabela 'metas_financeiras'
+    lancamentos_meta: []    // tabela 'lancamentos_meta'
 };
 
 let charts = {
@@ -122,6 +124,14 @@ async function loadState() {
             if (inv) state.investimento_inicial = parseFloat(inv.valor);
         }
 
+        // Busca Metas
+        const { data: metasData } = await supabaseClient.from('metas_financeiras').select('*');
+        if (metasData) state.metas = metasData;
+
+        // Busca Lançamentos de Metas
+        const { data: lancMetas } = await supabaseClient.from('lancamentos_meta').select('*');
+        if (lancMetas) state.lancamentos_meta = lancMetas;
+
         showConnectionBanner('online', 'Dados atualizados!');
 
     } catch (err) {
@@ -156,6 +166,7 @@ document.querySelectorAll('.nav-item').forEach(link => {
             renderComprasEstoque();
         }
         if (targetView === 'relatorios') renderHistorico();
+        if (targetView === 'meta') renderMeta();
     });
 });
 
@@ -602,9 +613,14 @@ async function deletarRegistro(tabela, id) {
         const { error } = await supabaseClient.from(tabela).delete().eq('id', id);
         if(error) throw error;
 
-        // Atualiza state local
         if (tabela === 'entradas') state.entradas = state.entradas.filter(e => e.id !== id);
         if (tabela === 'saidas') state.saidas = state.saidas.filter(s => s.id !== id);
+        if (tabela === 'lancamentos_meta') {
+            state.lancamentos_meta = state.lancamentos_meta.filter(l => l.id !== id);
+            renderMeta();
+            alert('Lançamento da meta excluído!');
+            return; // Retorna para não chamar as outras funções globais
+        }
         if (tabela === 'historico_estoque') {
             const h = state.historico_estoque.find(x => x.id === id);
             if (h && confirm('Deseja devolver a quantidade consumida ao estoque total?')) {
@@ -1116,6 +1132,155 @@ async function deletarHistoricoConsumoPorDia(dataRef) {
 function init() {
     loadState(); 
 }
+
+// --- LÓGICA DE META $ ---
+function renderMeta() {
+    const metaAtiva = state.metas.find(m => m.ativa);
+    const panelSetup = document.getElementById('meta-setup-panel');
+    const panelActive = document.getElementById('meta-active-panel');
+
+    if (!metaAtiva) {
+        panelSetup.style.display = 'block';
+        panelActive.style.display = 'none';
+        return;
+    }
+
+    panelSetup.style.display = 'none';
+    panelActive.style.display = 'block';
+
+    const lancamentos = state.lancamentos_meta.filter(l => l.meta_id === metaAtiva.id);
+    const totalArrecadado = lancamentos.reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    const valorRestante = parseFloat(metaAtiva.valor_total) - totalArrecadado;
+    
+    // Calcula dias
+    const inicioDate = new Date(metaAtiva.data_inicio + "T00:00:00"); // Pega o início à meia-noite da data local
+    const hoje = new Date();
+    // Zera horas para a diferença ser exata em dias
+    inicioDate.setHours(0,0,0,0);
+    hoje.setHours(0,0,0,0);
+    
+    const timeDiff = hoje.getTime() - inicioDate.getTime();
+    let diasPassados = Math.floor(timeDiff / (1000 * 3600 * 24));
+    if (diasPassados < 0) diasPassados = 0; // Se a meta começa no futuro
+
+    let diasRestantes = parseInt(metaAtiva.dias_esforco) - diasPassados;
+    if (diasRestantes <= 0) diasRestantes = 1; // Proteção para não dar infinity se atrasar, exige arrecadar tudo no último dia.
+
+    let metaDiariaGlobal = 0;
+    if (valorRestante > 0) {
+        metaDiariaGlobal = valorRestante / diasRestantes;
+    }
+    const metaDiariaIndiv = metaDiariaGlobal / 2;
+
+    const tonyTotal = lancamentos.filter(l => l.responsavel === 'Tony').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    const lysTotal = lancamentos.filter(l => l.responsavel === 'Lys').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+
+    let progresso = (totalArrecadado / parseFloat(metaAtiva.valor_total)) * 100;
+    if (progresso > 100) progresso = 100;
+
+    // Atualiza DOM
+    document.getElementById('meta-nome-display').textContent = metaAtiva.nome;
+    document.getElementById('meta-valor-display').textContent = `${formatCurrency(totalArrecadado)} / ${formatCurrency(metaAtiva.valor_total)}`;
+    document.getElementById('meta-progress').style.width = `${progresso}%`;
+    document.getElementById('meta-perc-text').textContent = `${progresso.toFixed(1)}%`;
+    document.getElementById('meta-dias-restantes').textContent = diasRestantes;
+
+    document.getElementById('meta-tony-total').textContent = formatCurrency(tonyTotal);
+    document.getElementById('meta-lys-total').textContent = formatCurrency(lysTotal);
+
+    document.getElementById('meta-diaria-individual').innerHTML = `${formatCurrency(metaDiariaIndiv)} <span style="font-size: 1rem; color: var(--text-muted);">cada um</span>`;
+    document.getElementById('meta-diaria-global').textContent = formatCurrency(metaDiariaGlobal);
+
+    // Renderiza Lista
+    const list = document.getElementById('meta-transactions-list');
+    list.innerHTML = '';
+    const lancSorted = [...lancamentos].sort((a,b) => new Date(b.criado_em || b.data_lancamento).getTime() - new Date(a.criado_em || a.data_lancamento).getTime());
+    
+    if (lancSorted.length === 0) {
+        list.innerHTML = '<li>Nenhum lançamento feito.</li>';
+    } else {
+        lancSorted.forEach(l => {
+            const li = document.createElement('li');
+            li.className = 'historico-item';
+            const cor = l.responsavel === 'Tony' ? '#3b82f6' : '#ec4899';
+            li.innerHTML = `
+                <div style="flex:1">
+                    <p style="color: ${cor}"><strong>${l.responsavel}</strong> guardou</p>
+                    <small>${l.data_lancamento.split('-').reverse().join('/')}</small>
+                </div>
+                <strong>+${formatCurrency(l.valor)}</strong>
+                <button class="btn-delete" onclick="deletarRegistro('lancamentos_meta', ${l.id})" title="Excluir">
+                    <ion-icon name="trash-outline"></ion-icon>
+                </button>
+            `;
+            list.appendChild(li);
+        });
+    }
+}
+
+document.getElementById('form-criar-meta').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nome = document.getElementById('nova-meta-nome').value;
+    const valor = parseFloat(document.getElementById('nova-meta-valor').value);
+    const dias = parseInt(document.getElementById('nova-meta-dias').value);
+    const inicio = document.getElementById('nova-meta-inicio').value;
+
+    const btn = e.target.querySelector('button');
+    btn.textContent = 'Iniciando...'; btn.disabled = true;
+
+    const { data, error } = await supabaseClient.from('metas_financeiras').insert([{
+        nome,
+        valor_total: valor,
+        dias_esforco: dias,
+        data_inicio: inicio,
+        ativa: true
+    }]).select();
+
+    btn.textContent = 'Iniciar Meta'; btn.disabled = false;
+
+    if (error) return alert('Erro ao criar a meta!');
+
+    state.metas.push(data[0]);
+    e.target.reset();
+    renderMeta();
+});
+
+document.getElementById('form-lancamento-meta').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const responsavel = document.getElementById('meta-lanc-responsavel').value;
+    const valor = parseFloat(document.getElementById('meta-lanc-valor').value);
+    const dataInput = document.getElementById('meta-lanc-data').value;
+    const metaAtiva = state.metas.find(m => m.ativa);
+
+    const btn = e.target.querySelector('button');
+    btn.textContent = 'Salvando...'; btn.disabled = true;
+
+    const { data, error } = await supabaseClient.from('lancamentos_meta').insert([{
+        meta_id: metaAtiva.id,
+        valor: valor,
+        responsavel: responsavel,
+        data_lancamento: dataInput || getHojeStr()
+    }]).select();
+
+    btn.textContent = 'Adicionar à Meta'; btn.disabled = false;
+
+    if (error) return alert('Erro ao registrar valor!');
+
+    state.lancamentos_meta.push(data[0]);
+    document.getElementById('meta-lanc-valor').value = '';
+    renderMeta();
+});
+
+document.getElementById('btn-encerrar-meta').addEventListener('click', async () => {
+    if(!confirm('Tem certeza que deseja encerrar a meta atual? Você poderá iniciar uma nova meta depois.')) return;
+    const metaAtiva = state.metas.find(m => m.ativa);
+    
+    const { error } = await supabaseClient.from('metas_financeiras').update({ ativa: false }).eq('id', metaAtiva.id);
+    if (error) return alert('Erro ao encerrar meta.');
+
+    metaAtiva.ativa = false;
+    renderMeta();
+});
 
 // Expõe funções para o escopo global (necessário para o onclick no HTML)
 window.deletarProduto = deletarProduto;

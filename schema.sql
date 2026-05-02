@@ -1,6 +1,8 @@
 -- Execute este script no SQL Editor do seu Supabase para criar o banco de dados.
 
 -- Limpeza caso rode novamente
+DROP TABLE IF EXISTS lancamentos_meta;
+DROP TABLE IF EXISTS metas_financeiras;
 DROP TABLE IF EXISTS historico_estoque;
 DROP TABLE IF EXISTS estoque_total;
 DROP TABLE IF EXISTS produtos;
@@ -82,3 +84,24 @@ INSERT INTO produtos (nome, categoria, unidade_medida) VALUES
 
 -- Garante que Policies de RLS (Row Level Security) não bloqueiem (Por ser uso interno SPA anônimo)
 -- ATENÇÃO: Se desejar segurança reforçada depois, deve-se criar roles e RLS. Para rodar fácil agora, as tabelas são públicas.
+
+-- Tabela: Metas Financeiras do Casal
+CREATE TABLE metas_financeiras (
+    id SERIAL PRIMARY KEY,
+    nome TEXT NOT NULL,
+    valor_total NUMERIC(15,2) NOT NULL,
+    dias_esforco INTEGER NOT NULL,
+    data_inicio DATE NOT NULL,
+    ativa BOOLEAN DEFAULT TRUE,
+    criado_em TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabela: Lançamentos da Meta
+CREATE TABLE lancamentos_meta (
+    id SERIAL PRIMARY KEY,
+    meta_id INTEGER REFERENCES metas_financeiras(id) ON DELETE CASCADE,
+    data_lancamento DATE DEFAULT CURRENT_DATE,
+    valor NUMERIC(15,2) NOT NULL,
+    responsavel TEXT NOT NULL, -- 'Tony' ou 'Lys'
+    criado_em TIMESTAMPTZ DEFAULT NOW()
+);

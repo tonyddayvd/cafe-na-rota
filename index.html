@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260502_1">
+    <link rel="stylesheet" href="styles.css?v=20260502_2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -246,6 +246,94 @@
                 </button>
             </div>
         </section>
+
+        <!-- VIEW: META $ -->
+        <section id="view-meta" class="view">
+            <h2>Meta do Casal</h2>
+            
+            <!-- Estado sem meta ativa -->
+            <div id="meta-setup-panel" class="card">
+                <h3>Criar Nova Meta</h3>
+                <form id="form-criar-meta">
+                    <div class="input-group">
+                        <label>Objetivo (ex: Carro, Viagem)</label>
+                        <input type="text" id="nova-meta-nome" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Valor Total Necessário (R$)</label>
+                        <input type="number" id="nova-meta-valor" step="0.01" min="1" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Dias de Esforço</label>
+                        <input type="number" id="nova-meta-dias" min="1" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Data de Início</label>
+                        <input type="date" id="nova-meta-inicio" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-large">Iniciar Meta</button>
+                </form>
+            </div>
+
+            <!-- Estado com meta ativa -->
+            <div id="meta-active-panel" style="display:none;">
+                <div class="caixa-resumo" style="background: linear-gradient(135deg, var(--primary-color) 0%, #16a34a 100%); margin-bottom: 1rem;">
+                    <p id="meta-nome-display">Nome da Meta</p>
+                    <h3 id="meta-valor-display">R$ 0,00 / R$ 0,00</h3>
+                    <div class="progress-bar-container" style="background: rgba(0,0,0,0.2); height: 16px; margin: 10px 0;">
+                        <div class="progress-bar" id="meta-progress" style="background: #fff;"></div>
+                    </div>
+                    <p class="text-sm"><span id="meta-perc-text">0%</span> • Faltam <span id="meta-dias-restantes">0</span> dias</p>
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="card stat-card" style="border-left-color: #3b82f6;">
+                        <p>Tony Arrecadou</p>
+                        <h4 id="meta-tony-total" style="color: #3b82f6;">R$ 0,00</h4>
+                    </div>
+                    <div class="card stat-card" style="border-left-color: #ec4899;">
+                        <p>Lys Arrecadou</p>
+                        <h4 id="meta-lys-total" style="color: #ec4899;">R$ 0,00</h4>
+                    </div>
+                </div>
+
+                <div class="card" style="text-align: center; border: 2px solid var(--success);">
+                    <h3>Meta Diária (Hoje)</h3>
+                    <p class="text-sm var-text-muted mb-1">Valor alvo calculado para bater a meta a tempo.</p>
+                    <h2 style="color: var(--success); font-size: 2rem;" id="meta-diaria-individual">R$ 0,00 <span style="font-size: 1rem; color: var(--text-muted);">cada um</span></h2>
+                    <p class="text-xs var-text-muted mt-1">Total diário: <span id="meta-diaria-global">R$ 0,00</span></p>
+                </div>
+
+                <div class="card mt-1">
+                    <h3>Registrar Arrecadação</h3>
+                    <form id="form-lancamento-meta">
+                        <div class="input-group">
+                            <label>Data</label>
+                            <input type="date" id="meta-lanc-data">
+                        </div>
+                        <div class="input-group">
+                            <label>Quem Arrecadou?</label>
+                            <select id="meta-lanc-responsavel" required>
+                                <option value="Tony">Tony</option>
+                                <option value="Lys">Lys</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Valor (R$)</label>
+                            <input type="number" id="meta-lanc-valor" step="0.01" min="0.01" required>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-large" style="background: var(--success); color: white;">Adicionar à Meta</button>
+                    </form>
+                </div>
+                
+                <div class="recent-transactions mt-2">
+                    <h3>Últimos Lançamentos da Meta</h3>
+                    <ul id="meta-transactions-list"></ul>
+                </div>
+                
+                <button id="btn-encerrar-meta" class="btn btn-danger mt-2 text-sm">Encerrar Meta Atual</button>
+            </div>
+        </section>
     </main>
 
     <nav class="bottom-nav">
@@ -264,6 +352,10 @@
         <a href="#relatorios" class="nav-item" data-view="relatorios">
             <ion-icon name="bar-chart"></ion-icon>
             <span>Relatórios</span>
+        </a>
+        <a href="#meta" class="nav-item" data-view="meta">
+            <ion-icon name="rocket"></ion-icon>
+            <span>Meta $</span>
         </a>
     </nav>
 
@@ -362,6 +454,6 @@
     </script>
     
     <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
-    <script src="app.js?v=20260502_12"></script>
+    <script src="app.js?v=20260502_13"></script>
 </body>
 </html>
