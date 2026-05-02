@@ -833,14 +833,10 @@ document.getElementById('btn-reset-dados').addEventListener('click', async () =>
 
 function renderHistorico() {
     // Agora renderHistorico é acoplado ao período selecionado no Dashboard BI
-    updateRelatorios(parseInt(document.querySelector('.filter-bar .active')?.getAttribute('data-period') || 7));
+    updateRelatorios(parseInt(document.querySelector('.modern-filter-bar .active')?.getAttribute('data-period') || 7));
 }
 
 function updateRelatorios(dias) {
-    const list = document.getElementById('historico-list');
-    if (!list) return;
-    list.innerHTML = '';
-    
     const hoje = new Date();
     const datasNoPeriodo = [];
     for(let i=0; i<dias; i++) {
@@ -848,177 +844,84 @@ function updateRelatorios(dias) {
         datasNoPeriodo.push(d.toISOString().split('T')[0]);
     }
     
-    let lucroTotalPeriodo = 0;
     let somaVendasPeriodo = 0;
-    let somaGastosPeriodo = 0;
-    let diasComVenda = 0;
+    let coposVendidosPeriodo = 0;
+    const consumoProdutos = {}; // mapeia produto_id -> qtde consumida
     
-    const dadosGraficoLucro = { labels: [], faturamento: [], despesa: [] };
-    const dadosDiasSemana = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
-
-    // --- MOTOR DE RENDIMENTO E BI ---
-    let totalConsumoCafe = 0; 
-    let mlVendidosTotal = 0;
+    const dadosGrafico = { labels: [], vendas: [], lucros: [] };
 
     // Cálculo do Período
     datasNoPeriodo.reverse().forEach(data => {
         const stats = getEstatisticasDia(data);
         const [ano, mes, dia] = data.split('-');
-        const dataFormatada = `${dia}/${mes}`;
         
-        dadosGraficoLucro.labels.push(dataFormatada);
-        dadosGraficoLucro.faturamento.push(stats.totalCaixaBruto);
-        dadosGraficoLucro.despesa.push(stats.totalDespesas);
+        dadosGrafico.labels.push(`${dia}/${mes}`);
+        dadosGrafico.vendas.push(stats.totalCaixaBruto);
+        dadosGrafico.lucros.push(stats.lucroLiquido);
         
-        const diaSemana = new Date(data + 'T12:00:00').getDay();
-        dadosDiasSemana[diaSemana] += stats.totalCaixaBruto;
+        somaVendasPeriodo += stats.totalCaixaBruto;
+        coposVendidosPeriodo += stats.coposVendidos;
 
-        // Rendimento - 100ml por copo vendido
-        mlVendidosTotal += (stats.coposVendidos * 100);
-
-        // Somar consumo de insumos chaves
+        // Somar consumo de produtos para achar o Top Produto
         const histDia = state.historico_estoque.filter(h => h.data_referencia === data);
         histDia.forEach(h => {
-            const prod = state.produtos.find(p => p.id === h.produto_id);
-            if (prod) {
-                if (prod.nome.toLowerCase().includes('café')) totalConsumoCafe += h.consumido;
-            }
+            consumoProdutos[h.produto_id] = (consumoProdutos[h.produto_id] || 0) + parseFloat(h.consumido);
         });
-
-        if (stats.totalCaixaBruto > 0 || stats.totalDespesas > 0) {
-            lucroTotalPeriodo += stats.lucroLiquido;
-            somaVendasPeriodo += stats.totalCaixaBruto;
-            somaGastosPeriodo += stats.totalDespesas;
-            diasComVenda++;
-            
-            const li = document.createElement('li');
-            li.className = 'historico-item';
-            li.innerHTML = `
-                <div style="flex:1">
-                    <span>${dataFormatada} - ${Math.round(stats.coposVendidos)} cafés</span>
-                </div>
-                <strong class="${stats.lucroLiquido >= 0 ? 'val-pos' : 'val-neg'}">
-                    ${formatCurrency(stats.lucroLiquido)}
-                </strong>
-                <button class="btn-delete-sm" onclick="deletarHistoricoConsumoPorDia('${data}')" title="Limpar contagem deste dia">
-                    <ion-icon name="refresh-outline"></ion-icon>
-                </button>
-            `;
-            list.appendChild(li);
-        }
     });
 
-    // Cálculos GLOBAIS (Todo o Histórico)
-    const vendasGlobal = state.entradas.reduce((sum, e) => sum + (parseFloat(e.valor_total) || 0), 0);
-    const gastosGlobal = state.saidas.reduce((sum, s) => sum + (parseFloat(s.valor) || 0), 0);
-    const lucroGlobal = vendasGlobal - gastosGlobal;
+    // 1. Ticket Médio
+    const ticketMedio = coposVendidosPeriodo > 0 ? (somaVendasPeriodo / coposVendidosPeriodo) : 0;
+    document.getElementById('rel-ticket-medio').textContent = formatCurrency(ticketMedio);
 
-    if (diasComVenda === 0) list.innerHTML = '<li>Nenhum movimento no período selecionado.</li>';
-    
-    // Atualiza KPIs Globais
-    const elVendasTotal = document.getElementById('rel-vendas-total');
-    const elGastoTotal = document.getElementById('rel-gasto-total');
-    const elLucroTotal = document.getElementById('rel-lucro-total');
-    
-    elVendasTotal.textContent = formatCurrency(vendasGlobal);
-    elGastoTotal.textContent = formatCurrency(gastosGlobal);
-    elLucroTotal.textContent = formatCurrency(lucroGlobal);
-    elLucroTotal.className = lucroGlobal >= 0 ? 'val-pos' : 'val-neg';
+    // 2. Copos Vendidos
+    document.getElementById('rel-copos-vendidos').textContent = Math.round(coposVendidosPeriodo).toString();
 
-    // Atualiza KPIs do Período
-    const elVendasSemana = document.getElementById('rel-vendas-semana');
-    const elGastoSemana = document.getElementById('rel-gasto-semana');
-    const elLucroSemana = document.getElementById('rel-lucro-semana');
-
-    elVendasSemana.textContent = formatCurrency(somaVendasPeriodo);
-    elGastoSemana.textContent = formatCurrency(somaGastosPeriodo);
-    elLucroSemana.textContent = formatCurrency(lucroTotalPeriodo);
-    elLucroSemana.className = lucroTotalPeriodo >= 0 ? 'val-pos' : 'val-neg';
-    
-    document.getElementById('rel-media-vendas').textContent = formatCurrency(somaVendasPeriodo / (diasComVenda || 1));
-
-    // Cálculo de BI adicional
-    let rendCafeLabel = "Pendente dados de contagem.";
-    if (totalConsumoCafe > 0 && mlVendidosTotal > 0) {
-        const prodCafe = state.produtos.find(p => p.nome.toLowerCase().includes('café'));
-        const unit = prodCafe ? prodCafe.unidade_medida : 'g';
-        
-        if (unit === 'g' || unit === 'kg') {
-            const kg = (unit === 'kg' ? totalConsumoCafe : (totalConsumoCafe / 1000));
-            const rend = (mlVendidosTotal / 1000) / (kg || 1); // Litros por Kg
-            rendCafeLabel = `1kg de pó rendeu ${rend.toFixed(1)}L de café pronto.`;
-        } else {
-            const rend = (mlVendidosTotal / 1000) / totalConsumoCafe; // Litros por Pacote
-            rendCafeLabel = `1 pacote rendeu ${rend.toFixed(1)}L de café pronto.`;
+    // 3. Top Produto
+    let topProdId = null;
+    let maxConsumo = 0;
+    for (let pId in consumoProdutos) {
+        if (consumoProdutos[pId] > maxConsumo) {
+            maxConsumo = consumoProdutos[pId];
+            topProdId = pId;
         }
     }
+    const nomeTopProd = topProdId ? (state.produtos.find(p => p.id == topProdId)?.nome || 'Desconhecido') : '-';
+    document.getElementById('rel-top-produto').textContent = nomeTopProd;
 
-    const ticketMedio = (somaVendasPeriodo / (mlVendidosTotal / 100 || 1)) || 0;
-    document.getElementById('rel-ticket-medio').textContent = formatCurrency(ticketMedio);
-    
-    // Melhor dia da semana
-    const nomesDias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-    let melhorDiaIndex = -1; let maxVenda = 0;
-    for(let d in dadosDiasSemana) {
-        if(dadosDiasSemana[d] > maxVenda) { maxVenda = dadosDiasSemana[d]; melhorDiaIndex = d; }
-    }
-    document.getElementById('rel-melhor-dia').textContent = melhorDiaIndex !== -1 ? nomesDias[melhorDiaIndex] : '-';
-
-    // Widget ROI
-    const divROI = document.createElement('div');
-    divROI.className = 'card mt-1';
-    const roiPercent = Math.min(100, Math.max(0, (lucroGlobal / (state.investimento_inicial || 1)) * 100));
-    divROI.innerHTML = `
-        <h3>Inteligência de Operação</h3>
-        <p class="text-sm"><strong>ROI Acumulado:</strong> ${roiPercent.toFixed(1)}%</p>
-        <div style="background:#eee; height:10px; border-radius:5px; margin:5px 0; overflow:hidden">
-            <div style="background:var(--primary-color); height:100%; width:${roiPercent}%; transition: width 1s"></div>
-        </div>
-        <p class="text-xs mt-1"><strong>Rendimento Prático:</strong> ${rendCafeLabel}</p>
-        <p class="text-xs"><strong>Status:</strong> Seu lucro total acumulado é ${formatCurrency(lucroGlobal)}.</p>
-    `;
-    list.prepend(divROI);
-
-    renderCharts(dadosGraficoLucro, dadosDiasSemana);
+    renderChartPrincipal(dadosGrafico);
 }
 
-function renderCharts(lucroData, diasData) {
-    const ctxLucro = document.getElementById('chart-lucro')?.getContext('2d');
-    const ctxDias = document.getElementById('chart-dias')?.getContext('2d');
+function renderChartPrincipal(dados) {
+    const ctx = document.getElementById('chart-principal')?.getContext('2d');
     
-    if (!ctxLucro || !window.Chart) {
-        console.warn("Chart.js ou Canvas não encontrados.");
-        return;
-    }
+    if (!ctx || !window.Chart) return;
 
-    // Destruir gráficos anteriores para evitar sobreposição/erro
     if (charts.lucro) charts.lucro.destroy();
     if (charts.dias) charts.dias.destroy();
 
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#fcf8f2' : '#2d1a0d';
 
-    // Gráfico de Tendência (Linha)
-    charts.lucro = new Chart(ctxLucro, {
+    charts.lucro = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: lucroData.labels,
+            labels: dados.labels,
             datasets: [
                 {
                     label: 'Vendas (R$)',
-                    data: lucroData.faturamento,
-                    borderColor: '#16a34a',
-                    backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                    data: dados.vendas,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     borderWidth: 3,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 4
                 },
                 {
-                    label: 'Gastos (R$)',
-                    data: lucroData.despesa,
-                    borderColor: '#dc2626',
-                    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                    label: 'Lucro (R$)',
+                    data: dados.lucros,
+                    borderColor: '#16a34a',
+                    backgroundColor: 'rgba(22, 163, 74, 0.1)',
                     borderWidth: 3,
                     fill: true,
                     tension: 0.4,
@@ -1030,49 +933,27 @@ function renderCharts(lucroData, diasData) {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                y: { beginAtZero: true, ticks: { color: textColor, font: { family: 'Outfit' } }, grid: { color: isDark ? '#3b2c22' : '#e5dacd' } },
-                x: { ticks: { color: textColor, font: { family: 'Outfit' } }, grid: { display: false } }
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { color: textColor, font: { family: 'Outfit' } }, 
+                    grid: { color: isDark ? '#3b2c22' : '#e5dacd' } 
+                },
+                x: { 
+                    ticks: { color: textColor, font: { family: 'Outfit' } }, 
+                    grid: { display: false } 
+                }
             },
             plugins: { 
                 legend: { labels: { color: textColor, font: { family: 'Outfit', weight: '600' } } }
             }
         }
     });
-
-    // Gráfico de Dias da Semana (Barra)
-    charts.dias = new Chart(ctxDias, {
-        type: 'bar',
-        data: {
-            labels: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
-            datasets: [{
-                label: 'Volume de Vendas (R$)',
-                data: [
-                    diasData[0] || 0, diasData[1] || 0, diasData[2] || 0, 
-                    diasData[3] || 0, diasData[4] || 0, diasData[5] || 0, diasData[6] || 0
-                ],
-                backgroundColor: '#7b4b31',
-                borderRadius: 8,
-                hoverBackgroundColor: '#d97736'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true, ticks: { color: textColor, font: { family: 'Outfit' } }, grid: { color: isDark ? '#3b2c22' : '#e5dacd' } },
-                x: { ticks: { color: textColor, font: { family: 'Outfit' } }, grid: { display: false } }
-            },
-            plugins: { 
-                legend: { display: false }
-            }
-        }
-    });
 }
 
 // Inicia os filtros de período
-document.querySelectorAll('.filter-bar button').forEach(btn => {
+document.querySelectorAll('.modern-filter-bar .btn-filter').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.modern-filter-bar .btn-filter').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         updateRelatorios(parseInt(btn.getAttribute('data-period')));
     });

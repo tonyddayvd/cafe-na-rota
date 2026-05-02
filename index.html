@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260502_3">
+    <link rel="stylesheet" href="styles.css?v=20260502_4">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -165,74 +165,45 @@
 
         <!-- VIEW: RELATÓRIOS -->
         <section id="view-relatorios" class="view">
-            <h2>Dashboard Analítico (BI)</h2>
+            <h2>Estatísticas</h2>
             
-            <div class="filter-bar mb-1">
-                <button class="btn btn-secondary btn-sm active" data-period="7">7 Dias</button>
-                <button class="btn btn-secondary btn-sm" data-period="15">15 Dias</button>
-                <button class="btn btn-secondary btn-sm" data-period="30">30 Dias</button>
+            <!-- Filtros Modernos -->
+            <div class="modern-filter-bar mb-2">
+                <button class="btn-filter" data-period="1">Hoje</button>
+                <button class="btn-filter active" data-period="7">Semana</button>
+                <button class="btn-filter" data-period="30">Mês</button>
             </div>
 
-            <div class="kpi-grid">
-                <!-- Totais Globais (Todo o Histórico) -->
-                <div class="card stat-card global-kpi">
-                    <p>Vendas Total (Geral)</p>
-                    <h4 id="rel-vendas-total">R$ 0,00</h4>
-                </div>
-                <div class="card stat-card global-kpi">
-                    <p>Gasto Total (Geral)</p>
-                    <h4 id="rel-gasto-total">R$ 0,00</h4>
-                </div>
-                <div class="card stat-card global-kpi">
-                    <p>Lucro Total (Geral)</p>
-                    <h4 id="rel-lucro-total">R$ 0,00</h4>
-                </div>
+            <!-- Gráfico Principal -->
+            <div class="card chart-container modern-chart-card mb-2">
+                <canvas id="chart-principal"></canvas>
+            </div>
 
-                <!-- Métricas do Período Selecionado -->
-                <div class="card stat-card">
-                    <p>Vendas no Período</p>
-                    <h4 id="rel-vendas-semana">R$ 0,00</h4>
+            <!-- Cards de Métricas -->
+            <div class="modern-metrics-grid mb-2">
+                <div class="modern-metric-card">
+                    <ion-icon name="ticket-outline" style="color: #3b82f6;"></ion-icon>
+                    <div>
+                        <p>Ticket Médio</p>
+                        <h4 id="rel-ticket-medio">R$ 0,00</h4>
+                    </div>
                 </div>
-                <div class="card stat-card">
-                    <p>Gasto no Período</p>
-                    <h4 id="rel-gasto-semana">R$ 0,00</h4>
+                <div class="modern-metric-card">
+                    <ion-icon name="trophy-outline" style="color: #eab308;"></ion-icon>
+                    <div>
+                        <p>Top Produto</p>
+                        <h4 id="rel-top-produto">-</h4>
+                    </div>
                 </div>
-                <div class="card stat-card">
-                    <p>Lucro no Período</p>
-                    <h4 id="rel-lucro-semana">R$ 0,00</h4>
-                </div>
-                
-                <div class="card stat-card">
-                    <p>Média Diária (Vendas)</p>
-                    <h4 id="rel-media-vendas">R$ 0,00</h4>
-                </div>
-                <div class="card stat-card">
-                    <p>Ticket Médio (Vendas)</p>
-                    <h4 id="rel-ticket-medio">R$ 0,00</h4>
-                </div>
-                <div class="card stat-card">
-                    <p>Melhor Dia</p>
-                    <h4 id="rel-melhor-dia">-</h4>
+                <div class="modern-metric-card">
+                    <ion-icon name="cafe-outline" style="color: #7b4b31;"></ion-icon>
+                    <div>
+                        <p>Copos Vendidos</p>
+                        <h4 id="rel-copos-vendidos">0</h4>
+                    </div>
                 </div>
             </div>
 
-            <div class="card chart-container mt-1">
-                <h3>Tendência de Lucratividade</h3>
-                <canvas id="chart-lucro"></canvas>
-            </div>
-
-            <div class="card chart-container mt-1">
-                <h3>Desempenho por Dia da Semana</h3>
-                <canvas id="chart-dias"></canvas>
-            </div>
-            
-            <div class="historico-dias mt-2">
-                <h3>Detalhamento Diário</h3>
-                <ul id="historico-list">
-                    <!-- Preenchido via JS -->
-                </ul>
-            </div>
-            
             <div class="config-section mt-2">
                 <h3>Configurações Iniciais</h3>
                 <div class="input-group">
@@ -459,6 +430,6 @@
     </script>
     
     <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
-    <script src="app.js?v=20260502_15"></script>
+    <script src="app.js?v=20260502_16"></script>
 </body>
 </html>
