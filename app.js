@@ -1238,7 +1238,10 @@ document.getElementById('form-criar-meta').addEventListener('submit', async (e) 
 
     btn.textContent = 'Iniciar Meta'; btn.disabled = false;
 
-    if (error) return alert('Erro ao criar a meta!');
+    if (error) {
+        console.error('Erro detalhado do Supabase:', error);
+        return alert('Erro ao criar a meta: ' + error.message);
+    }
 
     state.metas.push(data[0]);
     e.target.reset();
