@@ -361,6 +361,8 @@ ul { list-style: none; }
 
 .val-pos { color: var(--success) !important; font-weight: 600; }
 .val-neg { color: var(--danger) !important; font-weight: 600; }
+.entrada { color: var(--success) !important; }
+.saida { color: var(--danger) !important; }
 
 /* Bottom Menu */
 .bottom-nav {

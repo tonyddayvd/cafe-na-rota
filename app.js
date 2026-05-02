@@ -249,11 +249,15 @@ function renderTransactions() {
     if(!list) return;
     list.innerHTML = '';
     
-    // Mostra as últimas 30 transações (Entradas e Saídas) independente da data
+    // Mostra as últimas 30 transações (Entradas e Saídas) ordenadas cronologicamente
     const transacoes = [
-        ...state.entradas.map(e => ({ id: e.id, tipo: 'entrada', valor: parseFloat(e.valor_total), desc: 'Apurado Diário', data: e.data_referencia })),
-        ...state.saidas.map(s => ({ id: s.id, tipo: 'saida', valor: parseFloat(s.valor), desc: s.justificativa, data: s.data_referencia }))
-    ].sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0,30);
+        ...state.entradas.map(e => ({ id: e.id, tipo: 'entrada', valor: parseFloat(e.valor_total), desc: 'Apurado Diário', data: e.data_referencia, timestamp: e.data_operacao })),
+        ...state.saidas.map(s => ({ id: s.id, tipo: 'saida', valor: parseFloat(s.valor), desc: s.justificativa, data: s.data_referencia, timestamp: s.data_operacao }))
+    ].sort((a,b) => {
+        const timeA = new Date(a.timestamp || a.data).getTime();
+        const timeB = new Date(b.timestamp || b.data).getTime();
+        return timeB - timeA;
+    }).slice(0,30);
     
     if (transacoes.length === 0) return (list.innerHTML = '<li>Nenhuma transação registrada ainda.</li>');
     
