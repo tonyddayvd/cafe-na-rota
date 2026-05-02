@@ -1180,6 +1180,9 @@ function renderMeta() {
 
     // Atualiza DOM
     document.getElementById('meta-nome-display').textContent = metaAtiva.nome;
+    const badge = document.getElementById('meta-recorrente-badge');
+    if (badge) badge.style.display = metaAtiva.repetir_mensalmente ? 'inline-block' : 'none';
+
     document.getElementById('meta-valor-display').textContent = `${formatCurrency(totalArrecadado)} / ${formatCurrency(metaAtiva.valor_total)}`;
     document.getElementById('meta-progress').style.width = `${progresso}%`;
     document.getElementById('meta-perc-text').textContent = `${progresso.toFixed(1)}%`;
@@ -1224,6 +1227,7 @@ document.getElementById('form-criar-meta').addEventListener('submit', async (e) 
     const valor = parseFloat(document.getElementById('nova-meta-valor').value);
     const dias = parseInt(document.getElementById('nova-meta-dias').value);
     const inicio = document.getElementById('nova-meta-inicio').value;
+    const repetir = document.getElementById('nova-meta-repetir').checked;
 
     const btn = e.target.querySelector('button');
     btn.textContent = 'Iniciando...'; btn.disabled = true;
@@ -1233,6 +1237,7 @@ document.getElementById('form-criar-meta').addEventListener('submit', async (e) 
         valor_total: valor,
         dias_esforco: dias,
         data_inicio: inicio,
+        repetir_mensalmente: repetir,
         ativa: true
     }]).select();
 
@@ -1275,13 +1280,56 @@ document.getElementById('form-lancamento-meta').addEventListener('submit', async
 });
 
 document.getElementById('btn-encerrar-meta').addEventListener('click', async () => {
-    if(!confirm('Tem certeza que deseja encerrar a meta atual? Você poderá iniciar uma nova meta depois.')) return;
     const metaAtiva = state.metas.find(m => m.ativa);
-    
-    const { error } = await supabaseClient.from('metas_financeiras').update({ ativa: false }).eq('id', metaAtiva.id);
-    if (error) return alert('Erro ao encerrar meta.');
+    if (!metaAtiva) return;
 
+    let criarNova = false;
+    let novaDataInicio = "";
+
+    if (metaAtiva.repetir_mensalmente) {
+        novaDataInicio = prompt('Esta meta é recorrente! Se você quiser iniciar o próximo ciclo agora, digite a data de início (AAAA-MM-DD).\nExemplo: 2026-06-01\n\nSe quiser apenas encerrar permanentemente, clique em Cancelar.');
+        if (novaDataInicio !== null && novaDataInicio.trim() !== "") {
+            // Validar formato simples
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(novaDataInicio.trim())) {
+                alert('Formato de data inválido. A meta atual NÃO será encerrada. Tente novamente usando o formato AAAA-MM-DD.');
+                return;
+            }
+            criarNova = true;
+        } else {
+            if(!confirm('Você não digitou uma data. Deseja encerrar a meta ATUAL e DESATIVAR a repetição permanente?')) return;
+        }
+    } else {
+        if(!confirm('Tem certeza que deseja encerrar a meta atual? Você poderá iniciar uma nova meta depois.')) return;
+    }
+    
+    // Encerrar a atual
+    const { error: errUpdate } = await supabaseClient.from('metas_financeiras').update({ ativa: false }).eq('id', metaAtiva.id);
+    if (errUpdate) {
+        console.error(errUpdate);
+        return alert('Erro ao encerrar meta.');
+    }
     metaAtiva.ativa = false;
+
+    // Criar a nova se for o caso
+    if (criarNova) {
+        const { data: novaMeta, error: errInsert } = await supabaseClient.from('metas_financeiras').insert([{
+            nome: metaAtiva.nome,
+            valor_total: metaAtiva.valor_total,
+            dias_esforco: metaAtiva.dias_esforco,
+            data_inicio: novaDataInicio.trim(),
+            repetir_mensalmente: true,
+            ativa: true
+        }]).select();
+
+        if (errInsert) {
+            console.error(errInsert);
+            alert('A meta anterior foi encerrada, mas houve erro ao criar a do próximo mês!');
+        } else {
+            state.metas.push(novaMeta[0]);
+            alert('Meta do próximo mês iniciada com sucesso!');
+        }
+    }
+
     renderMeta();
 });
 

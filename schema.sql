@@ -92,6 +92,7 @@ CREATE TABLE metas_financeiras (
     valor_total NUMERIC(15,2) NOT NULL,
     dias_esforco INTEGER NOT NULL,
     data_inicio DATE NOT NULL,
+    repetir_mensalmente BOOLEAN DEFAULT FALSE,
     ativa BOOLEAN DEFAULT TRUE,
     criado_em TIMESTAMPTZ DEFAULT NOW()
 );

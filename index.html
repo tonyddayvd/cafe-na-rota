@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260502_2">
+    <link rel="stylesheet" href="styles.css?v=20260502_3">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -271,14 +271,19 @@
                         <label>Data de Início</label>
                         <input type="date" id="nova-meta-inicio" required>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-large">Iniciar Meta</button>
+                    <div class="input-group" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="nova-meta-repetir" style="width: 20px; height: 20px;">
+                        <label for="nova-meta-repetir" style="margin: 0; font-weight: normal;">Repetir mensamente (Nova meta automática ao encerrar)</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-large mt-1">Iniciar Meta</button>
                 </form>
             </div>
 
             <!-- Estado com meta ativa -->
             <div id="meta-active-panel" style="display:none;">
                 <div class="caixa-resumo" style="background: linear-gradient(135deg, var(--primary-color) 0%, #16a34a 100%); margin-bottom: 1rem;">
-                    <p id="meta-nome-display">Nome da Meta</p>
+                    <p id="meta-nome-display" style="display: inline-block; margin-right: 10px;">Nome da Meta</p>
+                    <span id="meta-recorrente-badge" style="display: none; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; vertical-align: middle;">🔄 Mensal</span>
                     <h3 id="meta-valor-display">R$ 0,00 / R$ 0,00</h3>
                     <div class="progress-bar-container" style="background: rgba(0,0,0,0.2); height: 16px; margin: 10px 0;">
                         <div class="progress-bar" id="meta-progress" style="background: #fff;"></div>
@@ -454,6 +459,6 @@
     </script>
     
     <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
-    <script src="app.js?v=20260502_14"></script>
+    <script src="app.js?v=20260502_15"></script>
 </body>
 </html>
