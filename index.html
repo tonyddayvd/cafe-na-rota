@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260502_5">
+    <link rel="stylesheet" href="styles.css?v=20260502_6">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -164,43 +164,41 @@
         </section>
 
         <!-- VIEW: RELATÓRIOS -->
-        <section id="view-relatorios" class="view">
-            <h2>Estatísticas</h2>
+        <section id="view-relatorios" class="view" style="padding-top: 10px;">
             
-            <!-- Filtros Modernos por Período Livre -->
-            <div class="modern-filter-bar mb-2" style="flex-direction: column; align-items: stretch; border: none; padding: 0; background: transparent;">
-                <div style="display: flex; gap: 10px; margin-bottom: 5px;">
-                    <div style="flex: 1; display: flex; flex-direction: column;">
-                        <label style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;">Início</label>
-                        <input type="date" id="rel-data-inicio" class="uber-date-input">
-                    </div>
-                    <div style="flex: 1; display: flex; flex-direction: column;">
-                        <label style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;">Fim</label>
-                        <input type="date" id="rel-data-fim" class="uber-date-input">
-                    </div>
-                </div>
+            <!-- Filtros Discretos de Data -->
+            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 20px;">
+                <input type="date" id="rel-data-inicio" class="uber-date-small">
+                <span style="font-weight: bold; color: var(--text-muted);">-</span>
+                <input type="date" id="rel-data-fim" class="uber-date-small">
             </div>
 
-            <!-- Gráfico Principal -->
-            <div class="card chart-container modern-chart-card mb-2">
+            <!-- Total Gigante (Apurado) -->
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h1 id="uber-total-apurado" style="font-size: 2.5rem; margin: 0; padding: 0;">R$ 0,00</h1>
+            </div>
+
+            <!-- Gráfico de Barras -->
+            <div class="chart-container" style="border: none; box-shadow: none; padding: 0; background: transparent; height: 250px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color);">
                 <canvas id="chart-principal"></canvas>
             </div>
 
-            <!-- Cards de Métricas -->
-            <div class="modern-metrics-grid mb-2">
-                <div class="modern-metric-card">
-                    <ion-icon name="ticket-outline" style="color: #3b82f6;"></ion-icon>
+            <!-- Sessão de Estatísticas (Texto Puro) -->
+            <div style="padding: 10px;">
+                <h2 style="font-size: 1.5rem; margin-bottom: 20px;">Estatísticas</h2>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div>
-                        <p>Ticket Médio</p>
-                        <h4 id="rel-ticket-medio">R$ 0,00</h4>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600;">Lucro Líquido</p>
+                        <h3 id="uber-lucro-liquido" style="font-size: 1.2rem; margin: 0;">R$ 0,00</h3>
                     </div>
-                </div>
-                <!-- Removido Top Produto pois só há Café -->
-                <div class="modern-metric-card">
-                    <ion-icon name="cafe-outline" style="color: #7b4b31;"></ion-icon>
                     <div>
-                        <p>Copos Vendidos</p>
-                        <h4 id="rel-copos-vendidos">0</h4>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600;">Ticket Médio</p>
+                        <h3 id="uber-ticket-medio" style="font-size: 1.2rem; margin: 0;">R$ 0,00</h3>
+                    </div>
+                    <div>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 600;">Copos Vendidos</p>
+                        <h3 id="uber-copos-vendidos" style="font-size: 1.2rem; margin: 0;">0</h3>
                     </div>
                 </div>
             </div>
@@ -431,6 +429,6 @@
     </script>
     
     <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
-    <script src="app.js?v=20260502_17"></script>
+    <script src="app.js?v=20260502_18"></script>
 </body>
 </html>

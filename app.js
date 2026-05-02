@@ -893,12 +893,27 @@ function updateRelatorios() {
 
     });
 
-    // 1. Ticket Médio
-    const ticketMedio = coposVendidosPeriodo > 0 ? (somaVendasPeriodo / coposVendidosPeriodo) : 0;
-    document.getElementById('rel-ticket-medio').textContent = formatCurrency(ticketMedio);
+    // Atualizando o Totalzão
+    document.getElementById('uber-total-apurado').textContent = formatCurrency(somaVendasPeriodo);
 
-    // 2. Copos Vendidos
-    document.getElementById('rel-copos-vendidos').textContent = Math.round(coposVendidosPeriodo).toString();
+    // Atualizando as 3 métricas de texto puro
+    let lucroLiquidoPeriodo = somaVendasPeriodo - somaGastosPeriodo; // Precisamos somar gastos também
+    
+    // Vou precisar iterar para gastos também
+    let gastosTotais = 0;
+    datasNoPeriodo.forEach(data => {
+        gastosTotais += getEstatisticasDia(data).totalDespesas;
+    });
+    lucroLiquidoPeriodo = somaVendasPeriodo - gastosTotais;
+
+    document.getElementById('uber-lucro-liquido').textContent = formatCurrency(lucroLiquidoPeriodo);
+
+    // Ticket Médio
+    const ticketMedio = coposVendidosPeriodo > 0 ? (somaVendasPeriodo / coposVendidosPeriodo) : 0;
+    document.getElementById('uber-ticket-medio').textContent = formatCurrency(ticketMedio);
+
+    // Copos Vendidos
+    document.getElementById('uber-copos-vendidos').textContent = Math.round(coposVendidosPeriodo).toString();
 
     renderChartPrincipal(dadosGrafico);
 }
@@ -914,30 +929,31 @@ function renderChartPrincipal(dados) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#fcf8f2' : '#2d1a0d';
 
+    // Rótulos formatados com array para quebrar a linha no Chart.js
+    // Mapear "DD/MM" para ["DD", "DiaDaSemana"]
+    const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const arrayLabels = dados.labels.map((label, index) => {
+        const [dia, mes] = label.split('/');
+        const anoAtual = new Date().getFullYear();
+        // Cuidado: Mês no JS é base 0
+        const dataReal = new Date(`${anoAtual}-${mes}-${dia}T12:00:00`);
+        const diaDaSemana = diasSemana[dataReal.getDay()];
+        return [dia, diaDaSemana];
+    });
+
     charts.lucro = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
-            labels: dados.labels,
+            labels: arrayLabels,
             datasets: [
                 {
-                    label: 'Vendas (R$)',
+                    label: 'Faturamento',
                     data: dados.vendas,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4
-                },
-                {
-                    label: 'Lucro (R$)',
-                    data: dados.lucros,
-                    borderColor: '#16a34a',
-                    backgroundColor: 'rgba(22, 163, 74, 0.1)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4
+                    backgroundColor: '#276ef1', // Azul Uber
+                    borderWidth: 0,
+                    borderRadius: 2, // Leve arredondamento no topo
+                    barPercentage: 0.8,
+                    categoryPercentage: 0.9
                 }
             ]
         },
@@ -947,16 +963,25 @@ function renderChartPrincipal(dados) {
             scales: {
                 y: { 
                     beginAtZero: true, 
-                    ticks: { color: textColor, font: { family: 'Outfit' } }, 
-                    grid: { color: isDark ? '#3b2c22' : '#e5dacd' } 
+                    ticks: { display: false }, // Oculta os números do eixo Y
+                    grid: { display: false }, // Sem linhas de grade
+                    border: { display: false } // Sem a linha do eixo Y
                 },
                 x: { 
-                    ticks: { color: textColor, font: { family: 'Outfit' } }, 
-                    grid: { display: false } 
+                    ticks: { color: textColor, font: { family: 'Outfit', size: 11 } }, 
+                    grid: { display: false }, // Sem linhas de grade
+                    border: { color: isDark ? '#444' : '#ccc' } // Apenas a linha horizontal base
                 }
             },
             plugins: { 
-                legend: { labels: { color: textColor, font: { family: 'Outfit', weight: '600' } } }
+                legend: { display: false }, // Oculta a legenda igual no Uber
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return formatCurrency(context.raw);
+                        }
+                    }
+                }
             }
         }
     });
