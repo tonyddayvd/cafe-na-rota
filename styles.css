@@ -293,6 +293,21 @@ p { font-size: 0.95rem; }
     border-radius: 20px;
     border: 1px solid var(--border-color);
 }
+.uber-date-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.uber-date-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
 .btn-filter {
     flex: 1;
     background: transparent;

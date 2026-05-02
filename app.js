@@ -832,26 +832,55 @@ document.getElementById('btn-reset-dados').addEventListener('click', async () =>
 });
 
 function renderHistorico() {
-    // Agora renderHistorico é acoplado ao período selecionado no Dashboard BI
-    updateRelatorios(parseInt(document.querySelector('.modern-filter-bar .active')?.getAttribute('data-period') || 7));
+    updateRelatorios();
 }
 
-function updateRelatorios(dias) {
-    const hoje = new Date();
+function updateRelatorios() {
+    const dataInicioInput = document.getElementById('rel-data-inicio').value;
+    const dataFimInput = document.getElementById('rel-data-fim').value;
+
     const datasNoPeriodo = [];
-    for(let i=0; i<dias; i++) {
-        const d = new Date(); d.setDate(hoje.getDate() - i);
-        datasNoPeriodo.push(d.toISOString().split('T')[0]);
+    const hoje = new Date();
+    
+    // Configura os inputs caso estejam vazios (padrão: últimos 7 dias)
+    if (!dataInicioInput || !dataFimInput) {
+        const dFim = new Date();
+        const dInicio = new Date(); dInicio.setDate(dFim.getDate() - 6);
+        
+        const fStr = dFim.toISOString().split('T')[0];
+        const iStr = dInicio.toISOString().split('T')[0];
+        
+        document.getElementById('rel-data-inicio').value = iStr;
+        document.getElementById('rel-data-fim').value = fStr;
+        
+        let dAtual = new Date(iStr + 'T12:00:00');
+        const limite = new Date(fStr + 'T12:00:00');
+        while (dAtual <= limite) {
+            datasNoPeriodo.push(dAtual.toISOString().split('T')[0]);
+            dAtual.setDate(dAtual.getDate() + 1);
+        }
+    } else {
+        let dAtual = new Date(dataInicioInput + 'T12:00:00');
+        const limite = new Date(dataFimInput + 'T12:00:00');
+        
+        if (dAtual > limite) {
+            alert('A data de início não pode ser maior que a data de fim.');
+            return;
+        }
+        
+        while (dAtual <= limite) {
+            datasNoPeriodo.push(dAtual.toISOString().split('T')[0]);
+            dAtual.setDate(dAtual.getDate() + 1);
+        }
     }
     
     let somaVendasPeriodo = 0;
     let coposVendidosPeriodo = 0;
-    const consumoProdutos = {}; // mapeia produto_id -> qtde consumida
     
     const dadosGrafico = { labels: [], vendas: [], lucros: [] };
 
     // Cálculo do Período
-    datasNoPeriodo.reverse().forEach(data => {
+    datasNoPeriodo.forEach(data => {
         const stats = getEstatisticasDia(data);
         const [ano, mes, dia] = data.split('-');
         
@@ -862,11 +891,6 @@ function updateRelatorios(dias) {
         somaVendasPeriodo += stats.totalCaixaBruto;
         coposVendidosPeriodo += stats.coposVendidos;
 
-        // Somar consumo de produtos para achar o Top Produto
-        const histDia = state.historico_estoque.filter(h => h.data_referencia === data);
-        histDia.forEach(h => {
-            consumoProdutos[h.produto_id] = (consumoProdutos[h.produto_id] || 0) + parseFloat(h.consumido);
-        });
     });
 
     // 1. Ticket Médio
@@ -875,18 +899,6 @@ function updateRelatorios(dias) {
 
     // 2. Copos Vendidos
     document.getElementById('rel-copos-vendidos').textContent = Math.round(coposVendidosPeriodo).toString();
-
-    // 3. Top Produto
-    let topProdId = null;
-    let maxConsumo = 0;
-    for (let pId in consumoProdutos) {
-        if (consumoProdutos[pId] > maxConsumo) {
-            maxConsumo = consumoProdutos[pId];
-            topProdId = pId;
-        }
-    }
-    const nomeTopProd = topProdId ? (state.produtos.find(p => p.id == topProdId)?.nome || 'Desconhecido') : '-';
-    document.getElementById('rel-top-produto').textContent = nomeTopProd;
 
     renderChartPrincipal(dadosGrafico);
 }
@@ -951,13 +963,8 @@ function renderChartPrincipal(dados) {
 }
 
 // Inicia os filtros de período
-document.querySelectorAll('.modern-filter-bar .btn-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.modern-filter-bar .btn-filter').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        updateRelatorios(parseInt(btn.getAttribute('data-period')));
-    });
-});
+document.getElementById('rel-data-inicio')?.addEventListener('change', updateRelatorios);
+document.getElementById('rel-data-fim')?.addEventListener('change', updateRelatorios);
 
 function renderComprasEstoque() {
     const list = document.getElementById('lista-compras-estoque');

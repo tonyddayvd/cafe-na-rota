@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260502_4">
+    <link rel="stylesheet" href="styles.css?v=20260502_5">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -167,11 +167,18 @@
         <section id="view-relatorios" class="view">
             <h2>Estatísticas</h2>
             
-            <!-- Filtros Modernos -->
-            <div class="modern-filter-bar mb-2">
-                <button class="btn-filter" data-period="1">Hoje</button>
-                <button class="btn-filter active" data-period="7">Semana</button>
-                <button class="btn-filter" data-period="30">Mês</button>
+            <!-- Filtros Modernos por Período Livre -->
+            <div class="modern-filter-bar mb-2" style="flex-direction: column; align-items: stretch; border: none; padding: 0; background: transparent;">
+                <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <label style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;">Início</label>
+                        <input type="date" id="rel-data-inicio" class="uber-date-input">
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column;">
+                        <label style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;">Fim</label>
+                        <input type="date" id="rel-data-fim" class="uber-date-input">
+                    </div>
+                </div>
             </div>
 
             <!-- Gráfico Principal -->
@@ -188,13 +195,7 @@
                         <h4 id="rel-ticket-medio">R$ 0,00</h4>
                     </div>
                 </div>
-                <div class="modern-metric-card">
-                    <ion-icon name="trophy-outline" style="color: #eab308;"></ion-icon>
-                    <div>
-                        <p>Top Produto</p>
-                        <h4 id="rel-top-produto">-</h4>
-                    </div>
-                </div>
+                <!-- Removido Top Produto pois só há Café -->
                 <div class="modern-metric-card">
                     <ion-icon name="cafe-outline" style="color: #7b4b31;"></ion-icon>
                     <div>
@@ -430,6 +431,6 @@
     </script>
     
     <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
-    <script src="app.js?v=20260502_16"></script>
+    <script src="app.js?v=20260502_17"></script>
 </body>
 </html>
