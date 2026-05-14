@@ -29,7 +29,8 @@ let state = {
 
 let charts = {
     lucro: null,
-    dias: null
+    dias: null,
+    meta_participacao: null
 };
 
 const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -1102,6 +1103,56 @@ function renderMeta() {
 
     document.getElementById('meta-diaria-individual').innerHTML = `${formatCurrency(metaDiariaIndiv)} <span style="font-size: 1rem; color: var(--text-muted);">cada um</span>`;
     document.getElementById('meta-diaria-global').textContent = formatCurrency(metaDiariaGlobal);
+
+    // Renderiza Gráfico de Participação
+    const ctx = document.getElementById('chart-meta-participacao')?.getContext('2d');
+    if (ctx && window.Chart) {
+        if (charts.meta_participacao) charts.meta_participacao.destroy();
+        
+        let dataTony = tonyTotal;
+        let dataLys = lysTotal;
+        
+        // Se ambos são 0, mostra um cinza vazio para não ficar em branco
+        if(dataTony === 0 && dataLys === 0) {
+            dataTony = 0.1;
+            dataLys = 0.1;
+        }
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        
+        charts.meta_participacao = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Tony', 'Lys'],
+                datasets: [{
+                    data: [dataTony, dataLys],
+                    backgroundColor: [
+                        tonyTotal === 0 && lysTotal === 0 ? '#cccccc' : '#3b82f6', 
+                        tonyTotal === 0 && lysTotal === 0 ? '#dddddd' : '#ec4899'
+                    ],
+                    borderWidth: isDark ? 2 : 3,
+                    borderColor: isDark ? '#2d1a0d' : '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (tonyTotal === 0 && lysTotal === 0) return ' Sem arrecadação';
+                                const percent = ((context.raw / totalArrecadado) * 100).toFixed(1);
+                                return ` ${context.label}: ${percent}% (${formatCurrency(context.raw)})`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     // Renderiza Lista
     const list = document.getElementById('meta-transactions-list');

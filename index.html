@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260502_8">
+    <link rel="stylesheet" href="styles.css?v=20260502_9">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -261,14 +261,21 @@
                     <p class="text-sm"><span id="meta-perc-text">0%</span> • Faltam <span id="meta-dias-restantes">0</span> dias</p>
                 </div>
 
-                <div class="kpi-grid">
-                    <div class="card stat-card" style="border-left-color: #3b82f6;">
-                        <p>Tony Arrecadou</p>
-                        <h4 id="meta-tony-total" style="color: #3b82f6;">R$ 0,00</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem;">
+                    <div class="card stat-card" style="border-left-color: #3b82f6; padding: 10px; display: block; text-align: center;">
+                        <p style="font-size: 0.8rem; margin-bottom: 4px;">Tony</p>
+                        <h4 id="meta-tony-total" style="color: #3b82f6; font-size: 1.1rem; white-space: normal; word-break: break-all;">R$ 0,00</h4>
                     </div>
-                    <div class="card stat-card" style="border-left-color: #ec4899;">
-                        <p>Lys Arrecadou</p>
-                        <h4 id="meta-lys-total" style="color: #ec4899;">R$ 0,00</h4>
+                    <div class="card stat-card" style="border-left-color: #ec4899; padding: 10px; display: block; text-align: center;">
+                        <p style="font-size: 0.8rem; margin-bottom: 4px;">Lys</p>
+                        <h4 id="meta-lys-total" style="color: #ec4899; font-size: 1.1rem; white-space: normal; word-break: break-all;">R$ 0,00</h4>
+                    </div>
+                </div>
+
+                <div class="card chart-container mb-2" style="height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 5px;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 5px; text-align: center; color: var(--text-muted);">Participação (%)</h3>
+                    <div style="position: relative; width: 100%; height: 180px;">
+                        <canvas id="chart-meta-participacao"></canvas>
                     </div>
                 </div>
 
@@ -429,6 +436,6 @@
     </script>
     
     <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
-    <script src="app.js?v=20260502_20"></script>
+    <script src="app.js?v=20260502_21"></script>
 </body>
 </html>
