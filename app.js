@@ -877,7 +877,7 @@ function updateRelatorios() {
     let somaVendasPeriodo = 0;
     let coposVendidosPeriodo = 0;
     
-    const dadosGrafico = { labels: [], vendas: [], lucros: [] };
+    const dadosGrafico = { labels: [], vendas: [], lucros: [], fullDates: [] };
 
     // Cálculo do Período
     datasNoPeriodo.forEach(data => {
@@ -885,26 +885,23 @@ function updateRelatorios() {
         const [ano, mes, dia] = data.split('-');
         
         dadosGrafico.labels.push(`${dia}/${mes}`);
+        dadosGrafico.fullDates.push(data); // Armazena a data original
         dadosGrafico.vendas.push(stats.totalCaixaBruto);
         dadosGrafico.lucros.push(stats.lucroLiquido);
         
         somaVendasPeriodo += stats.totalCaixaBruto;
         coposVendidosPeriodo += stats.coposVendidos;
-
     });
 
     // Atualizando o Totalzão
     document.getElementById('uber-total-apurado').textContent = formatCurrency(somaVendasPeriodo);
 
-    // Atualizando as 3 métricas de texto puro
-    let lucroLiquidoPeriodo = somaVendasPeriodo - somaGastosPeriodo; // Precisamos somar gastos também
-    
-    // Vou precisar iterar para gastos também
+    // Atualizando as 3 métricas de texto puro (Somando gastos do período)
     let gastosTotais = 0;
     datasNoPeriodo.forEach(data => {
         gastosTotais += getEstatisticasDia(data).totalDespesas;
     });
-    lucroLiquidoPeriodo = somaVendasPeriodo - gastosTotais;
+    const lucroLiquidoPeriodo = somaVendasPeriodo - gastosTotais;
 
     document.getElementById('uber-lucro-liquido').textContent = formatCurrency(lucroLiquidoPeriodo);
 
@@ -930,13 +927,12 @@ function renderChartPrincipal(dados) {
     const textColor = isDark ? '#fcf8f2' : '#2d1a0d';
 
     // Rótulos formatados com array para quebrar a linha no Chart.js
-    // Mapear "DD/MM" para ["DD", "DiaDaSemana"]
     const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const arrayLabels = dados.labels.map((label, index) => {
+        const dataISO = dados.fullDates[index];
         const [dia, mes] = label.split('/');
-        const anoAtual = new Date().getFullYear();
-        // Cuidado: Mês no JS é base 0
-        const dataReal = new Date(`${anoAtual}-${mes}-${dia}T12:00:00`);
+        // Usar meio-dia para evitar problemas de fuso horário
+        const dataReal = new Date(dataISO + 'T12:00:00');
         const diaDaSemana = diasSemana[dataReal.getDay()];
         return [dia, diaDaSemana];
     });
