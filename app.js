@@ -358,10 +358,17 @@ function renderEstoque() {
             if (prov.mediaDiaria > 0) {
                 const consumoMensal = prov.mediaDiaria * 30;
                 let perc = (prov.estoqueAtual / consumoMensal) * 100;
-                perc = Math.min(perc, 100); // Se tiver mais que o necessário pro mês, trava em 100%
-                percAbastecidoHTML = `<small style="display:block; margin-top:2px; color: ${isCritico ? 'var(--danger)' : 'var(--text-muted)'};">${perc.toFixed(0)}% de 1 mês abastecido</small>`;
+                perc = Math.min(perc, 100); // Trava em 100% se passar
+                
+                let corPerc = isCritico ? 'var(--danger)' : 'var(--text-muted)';
+                percAbastecidoHTML = `
+                    <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 6px; overflow: hidden;">
+                        <div style="width: ${perc}%; height: 100%; background: ${isCritico ? 'var(--danger)' : 'var(--success)'};"></div>
+                    </div>
+                    <small style="display:block; margin-top:2px; color: ${corPerc};">${perc.toFixed(0)}% de 1 mês abastecido</small>
+                `;
             } else if (prov.estoqueAtual > 0) {
-                percAbastecidoHTML = `<small style="display:block; margin-top:2px; color: var(--text-muted);">Calculando...</small>`;
+                percAbastecidoHTML = `<small style="display:block; margin-top:2px; color: var(--text-muted);">Calculando média...</small>`;
             }
 
             const div = document.createElement('div');
@@ -372,7 +379,7 @@ function renderEstoque() {
                     <p style="font-weight: 600;">${p.nome}</p>
                     <h4 style="font-size: 1.2rem;">${prov.estoqueAtual} ${p.unidade_medida}</h4>
                     ${percAbastecidoHTML}
-                    ${isCritico ? `<small style="font-size: 0.75rem; display:block; margin-top: 2px;">🚨 Restam ~${prov.duraDias} dias</small>` : ''}
+                    ${isCritico ? `<small style="font-size: 0.75rem; display:block; margin-top: 4px;">🚨 Restam ~${prov.duraDias} dias</small>` : ''}
                 </div>
             `;
             containerPrincipais.appendChild(div);
@@ -826,48 +833,40 @@ function updateDashboard() {
     const alertsList = document.getElementById('dash-alerts-list');
     alertsList.innerHTML = '';
     
-    const prodCopo = state.produtos.find(p => p.nome.toLowerCase().includes('copo'));
-    const prodCafe = state.produtos.find(p => p.nome.toLowerCase().includes('café') || p.nome.toLowerCase().includes('cafe'));
-    const prodAcucar = state.produtos.find(p => p.nome.toLowerCase().includes('açúcar') || p.nome.toLowerCase().includes('acucar'));
+    // Busca dinamicamente todos os produtos principais
+    const principais = state.produtos.filter(p => p.ativo && p.is_principal);
     
-    // Função Auxiliar para calcular Média Diluída (Máx 30 dias) e gerar HTML
-    function buildProvisionamentoInfo(prod, icone, nomeDisplay) {
-        if (!prod) return '';
-        
+    principais.forEach(prod => {
         const prov = calcularProvisionamento(prod);
-        if (prov.mediaDiaria === 0 && prov.estoqueAtual === 0) return '';
+        if (prov.mediaDiaria === 0 && prov.estoqueAtual === 0) return;
         
-        const mediaDiaria = prov.mediaDiaria;
-        const estoqueAtual = prov.estoqueAtual;
         const duraDias = prov.duraDias;
+        const estoqueAtual = prov.estoqueAtual;
         
-        // Alerta de 10% (3 dias ou menos)
         const isCritico = duraDias <= 3 && estoqueAtual > 0;
         const isZeradaco = estoqueAtual <= 0;
         const styleText = isCritico || isZeradaco ? 'color: var(--danger); font-weight: bold;' : '';
         const iconAlert = isCritico || isZeradaco ? '🚨 ' : '📦 ';
         
-        let infoGasto = `Gasto de ~${mediaDiaria.toFixed(1)} ${prod.unidade_medida}/dia`;
-        if(nomeDisplay === 'Copos') infoGasto = `Venda de ~${Math.round(mediaDiaria)} copos/dia`;
+        const isCopo = prod.nome.toLowerCase().includes('copo');
+        const icone = isCopo ? '🥤' : '☕';
+        
+        let infoGasto = `Gasto de ~${prov.mediaDiaria.toFixed(1)} ${prod.unidade_medida}/dia`;
+        if (isCopo) infoGasto = `Venda de ~${Math.round(prov.mediaDiaria)} copos/dia`;
         
         let infoDura = `Restam ${estoqueAtual} (Dura ~${duraDias} dias)`;
         if(isZeradaco) infoDura = `ESTOQUE ZERADO!`;
 
-        return `
+        alertsList.innerHTML += `
             <li>
-                <strong>${icone} ${nomeDisplay}:</strong> ${infoGasto}.<br>
+                <strong>${icone} ${prod.nome}:</strong> ${infoGasto}.<br>
                 <span style="${styleText}">${iconAlert} ${infoDura}</span>
             </li>
         `;
-    }
+    });
 
-    const htmlCopos = buildProvisionamentoInfo(prodCopo, '🥤', 'Copos');
-    const htmlCafe = buildProvisionamentoInfo(prodCafe, '☕', 'Café');
-    const htmlAcucar = buildProvisionamentoInfo(prodAcucar, '🍬', 'Açúcar');
-
-    if (htmlCopos || htmlCafe || htmlAcucar) {
-        alertsList.innerHTML += htmlCopos + htmlCafe + htmlAcucar;
-    }
+    const prodCopo = principais.find(p => p.nome.toLowerCase().includes('copo'));
+    const prodCafe = principais.find(p => p.nome.toLowerCase().includes('café') || p.nome.toLowerCase().includes('cafe'));
 
     // 2. Rendimento do Pó de Café
     if (prodCopo && prodCafe && state.historico_estoque.length > 0) {
