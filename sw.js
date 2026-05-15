@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cafe-na-rota-v32';
+const CACHE_NAME = 'cafe-na-rota-v33';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

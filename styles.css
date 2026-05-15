@@ -160,7 +160,7 @@ p { font-size: 0.95rem; }
 .cards-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 10px;
     margin-bottom: 1rem;
 }
 
@@ -171,17 +171,18 @@ p { font-size: 0.95rem; }
 }
 
 .stat-card ion-icon {
-    font-size: 2rem;
+    font-size: 1.8rem;
     color: var(--secondary-color);
     background: var(--bg-color);
-    padding: 10px;
+    padding: 8px;
     border-radius: var(--radius-sm);
 }
 
 .stat-card h4 {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     color: var(--text-main);
-    white-space: nowrap; /* Impede quebra do sinal de menos */
+    white-space: normal;
+    word-break: break-word;
 }
 .stat-card p {
     font-size: 0.8rem;
