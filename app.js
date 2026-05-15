@@ -744,30 +744,67 @@ function updateDashboard() {
     
     const prodCopo = state.produtos.find(p => p.nome.toLowerCase().includes('copo'));
     const prodCafe = state.produtos.find(p => p.nome.toLowerCase().includes('café') || p.nome.toLowerCase().includes('cafe'));
+    const prodAcucar = state.produtos.find(p => p.nome.toLowerCase().includes('açúcar') || p.nome.toLowerCase().includes('acucar'));
     
-    // 1. Tendência de Vendas de Copo
-    if (prodCopo) {
-        const consumosCopo = state.historico_estoque
-            .filter(h => h.produto_id === prodCopo.id)
-            .sort((a,b) => new Date(b.data_referencia) - new Date(a.data_referencia));
+    // Função Auxiliar para calcular Média Diluída (Máx 30 dias) e gerar HTML
+    function buildProvisionamentoInfo(prod, icone, nomeDisplay) {
+        if (!prod) return '';
         
-        if (consumosCopo.length > 0) {
-            const histPorData = consumosCopo.reduce((acc, obj) => {
-                acc[obj.data_referencia] = (acc[obj.data_referencia] || 0) + obj.consumido; return acc;
-            }, {});
+        const consumos = state.historico_estoque
+            .filter(h => h.produto_id === prod.id)
+            .sort((a,b) => new Date(a.data_referencia) - new Date(b.data_referencia)); // Mais antigo primeiro
             
-            const arrayValores = Object.values(histPorData);
-            const mediaCopo = arrayValores.reduce((a,b) => a+b, 0) / arrayValores.length;
-            const copoEstoque = state.estoque_total[prodCopo.id] || 0;
-            const duraDias = mediaCopo > 0 ? (copoEstoque / mediaCopo).toFixed(1) : 0;
-            
-            alertsList.innerHTML += `<li><strong>📈 Média de vendas:</strong> Você vende ~${Math.round(mediaCopo)} copos por turno/dia.</li>`;
-            
-            if(duraDias > 0) {
-                const cor = duraDias <= 2 ? 'color:var(--danger)' : '';
-                alertsList.innerHTML += `<li style="${cor}"><strong>📦 Provisionamento:</strong> Seus ${copoEstoque} copos restantes devem durar cerca de <strong>${duraDias} dias</strong>.</li>`;
-            }
-        }
+        if (consumos.length === 0) return '';
+        
+        const hoje = new Date();
+        hoje.setHours(0,0,0,0);
+        
+        const limite30Dias = new Date(hoje);
+        limite30Dias.setDate(limite30Dias.getDate() - 30);
+        
+        // Pega os lançamentos dos últimos 30 dias (ou de todo o período se não tiver recente)
+        const consumosRecentes = consumos.filter(h => new Date(h.data_referencia) >= limite30Dias);
+        const consumosBase = consumosRecentes.length > 0 ? consumosRecentes : consumos;
+        
+        const primeiraData = new Date(consumosBase[0].data_referencia);
+        primeiraData.setHours(0,0,0,0);
+        
+        const timeDiff = hoje.getTime() - primeiraData.getTime();
+        let diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        if (diffDays <= 0) diffDays = 1; // Previne divisão por zero se o lançamento foi hoje
+        
+        const totalConsumido = consumosBase.reduce((acc, obj) => acc + obj.consumido, 0);
+        const mediaDiaria = totalConsumido / diffDays;
+        
+        const estoqueAtual = state.estoque_total[prod.id] || 0;
+        const duraDias = mediaDiaria > 0 ? (estoqueAtual / mediaDiaria).toFixed(1) : 0;
+        
+        // Alerta de 10% (3 dias ou menos)
+        const isCritico = duraDias <= 3 && estoqueAtual > 0;
+        const isZeradaco = estoqueAtual <= 0;
+        const styleText = isCritico || isZeradaco ? 'color: var(--danger); font-weight: bold;' : '';
+        const iconAlert = isCritico || isZeradaco ? '🚨 ' : '📦 ';
+        
+        let infoGasto = `Gasto de ~${mediaDiaria.toFixed(1)} ${prod.unidade_medida}/dia`;
+        if(nomeDisplay === 'Copos') infoGasto = `Venda de ~${Math.round(mediaDiaria)} copos/dia`;
+        
+        let infoDura = `Restam ${estoqueAtual} (Dura ~${duraDias} dias)`;
+        if(isZeradaco) infoDura = `ESTOQUE ZERADO!`;
+
+        return `
+            <li>
+                <strong>${icone} ${nomeDisplay}:</strong> ${infoGasto}.<br>
+                <span style="${styleText}">${iconAlert} ${infoDura}</span>
+            </li>
+        `;
+    }
+
+    const htmlCopos = buildProvisionamentoInfo(prodCopo, '🥤', 'Copos');
+    const htmlCafe = buildProvisionamentoInfo(prodCafe, '☕', 'Café');
+    const htmlAcucar = buildProvisionamentoInfo(prodAcucar, '🍬', 'Açúcar');
+
+    if (htmlCopos || htmlCafe || htmlAcucar) {
+        alertsList.innerHTML += htmlCopos + htmlCafe + htmlAcucar;
     }
 
     // 2. Rendimento do Pó de Café
@@ -777,12 +814,12 @@ function updateDashboard() {
         
         if(totalCoposVendidosSempre > 0 && totalCafeGastoSempre > 0) {
             const gastoPorCopo = (totalCafeGastoSempre / totalCoposVendidosSempre).toFixed(1);
-            alertsList.innerHTML += `<li><strong>☕ Rendimento Real:</strong> Você gasta em média <strong>${gastoPorCopo} ${prodCafe.unidade_medida} de ${prodCafe.nome}</strong> para cada Copo vendido. Use isso para gerir sua força de proporção na garrafa.</li>`;
+            alertsList.innerHTML += `<li style="margin-top:10px; border-top: 1px solid var(--border-color); padding-top:10px;"><strong>⚖️ Rendimento Real:</strong> Você gasta <strong>${gastoPorCopo} ${prodCafe.unidade_medida} de café</strong> para cada Copo vendido. Ajuste sua mão na garrafa baseado nisso!</li>`;
         }
     }
 
     if (alertsList.innerHTML === '') {
-         alertsList.innerHTML = '<li>Venda mais alguns dias e informe as sobras de estoque para o sistema ter base para criar gráficos matemáticos!</li>';
+         alertsList.innerHTML = '<li>Faça vendas e informe saídas no estoque por alguns dias para o sistema gerar a inteligência e o fôlego do seu negócio!</li>';
     }
 }
 
