@@ -37,6 +37,42 @@ const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currenc
 const getHojeStr = () => new Date().toISOString().split('T')[0];
 const getUnidadeStr = (un) => un === 'un' ? 'unidades' : un;
 
+// --- FUNÇÕES GLOBAIS DE CÁLCULO ---
+function calcularProvisionamento(prod) {
+    if (!prod) return { mediaDiaria: 0, duraDias: 0, estoqueAtual: 0 };
+    
+    const consumos = state.historico_estoque
+        .filter(h => h.produto_id === prod.id)
+        .sort((a,b) => new Date(a.data_referencia) - new Date(b.data_referencia)); // Mais antigo primeiro
+        
+    const estoqueAtual = state.estoque_total[prod.id] || 0;
+
+    if (consumos.length === 0) return { mediaDiaria: 0, duraDias: 0, estoqueAtual };
+    
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+    
+    const limite30Dias = new Date(hoje);
+    limite30Dias.setDate(limite30Dias.getDate() - 30);
+    
+    const consumosRecentes = consumos.filter(h => new Date(h.data_referencia) >= limite30Dias);
+    const consumosBase = consumosRecentes.length > 0 ? consumosRecentes : consumos;
+    
+    const primeiraData = new Date(consumosBase[0].data_referencia);
+    primeiraData.setHours(0,0,0,0);
+    
+    const timeDiff = hoje.getTime() - primeiraData.getTime();
+    let diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    if (diffDays <= 0) diffDays = 1; 
+    
+    const totalConsumido = consumosBase.reduce((acc, obj) => acc + obj.consumido, 0);
+    const mediaDiaria = totalConsumido / diffDays;
+    
+    const duraDias = mediaDiaria > 0 ? parseFloat((estoqueAtual / mediaDiaria).toFixed(1)) : 0;
+    
+    return { mediaDiaria, duraDias, estoqueAtual };
+}
+
 // --- BANNER DE STATUS DE CONEXÃO ---
 function showConnectionBanner(status, msg) {
     let banner = document.getElementById('connection-banner');
@@ -298,10 +334,38 @@ function renderTransactions() {
 // --- LÓGICA DE ESTOQUE (Supabase + Unidades de Medida) ---
 function renderEstoque() {
     const list = document.getElementById('lista-insumos');
-    list.innerHTML = '';
+    const containerPrincipais = document.getElementById('estoque-principais-cards');
     
+    list.innerHTML = '';
+    containerPrincipais.innerHTML = '';
+    
+    let temPrincipal = false;
+
     state.produtos.forEach(p => {
         if (!p.ativo) return;
+        
+        // Renderiza os Itens Principais (Alerta <= 5 dias)
+        if (p.is_principal) {
+            temPrincipal = true;
+            const prov = calcularProvisionamento(p);
+            
+            const isCritico = prov.duraDias <= 5 || prov.estoqueAtual <= 0;
+            const cardClass = isCritico ? "card stat-card alert-danger" : "card stat-card";
+            const iconAlert = isCritico ? '<ion-icon name="warning-outline"></ion-icon>' : '<ion-icon name="cube-outline"></ion-icon>';
+            
+            const div = document.createElement('div');
+            div.className = cardClass;
+            div.innerHTML = `
+                ${iconAlert}
+                <div style="flex: 1;">
+                    <p style="font-weight: 600;">${p.nome}</p>
+                    <h4 style="font-size: 1.2rem;">${prov.estoqueAtual} ${p.unidade_medida}</h4>
+                    ${isCritico ? `<small style="font-size: 0.7rem;">🚨 Restam ~${prov.duraDias} dias</small>` : ''}
+                </div>
+            `;
+            containerPrincipais.appendChild(div);
+        }
+        
         const totalStock = state.estoque_total[p.id] || 0;
         
         const div = document.createElement('div');
@@ -327,6 +391,12 @@ function renderEstoque() {
         `;
         list.appendChild(div);
     });
+
+    if (temPrincipal) {
+        containerPrincipais.style.display = 'grid';
+    } else {
+        containerPrincipais.style.display = 'none';
+    }
 
     document.querySelectorAll('.btn-comprar-estoque').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -377,6 +447,7 @@ document.getElementById('btn-salvar-produto').addEventListener('click', async ()
     const cat = document.getElementById('novo-produto-cat').value;
     const un = document.getElementById('novo-produto-un').value;
     const cap = parseFloat(document.getElementById('novo-produto-capacidade').value) || 1;
+    const isPrincipal = document.getElementById('novo-produto-principal').checked;
     
     if (!nome) return alert('Insira o nome');
 
@@ -389,6 +460,7 @@ document.getElementById('btn-salvar-produto').addEventListener('click', async ()
         categoria: cat, 
         unidade_medida: un,
         capacidade_unidade: cap,
+        is_principal: isPrincipal,
         ativo: true
     }]).select();
 
@@ -750,34 +822,12 @@ function updateDashboard() {
     function buildProvisionamentoInfo(prod, icone, nomeDisplay) {
         if (!prod) return '';
         
-        const consumos = state.historico_estoque
-            .filter(h => h.produto_id === prod.id)
-            .sort((a,b) => new Date(a.data_referencia) - new Date(b.data_referencia)); // Mais antigo primeiro
-            
-        if (consumos.length === 0) return '';
+        const prov = calcularProvisionamento(prod);
+        if (prov.mediaDiaria === 0 && prov.estoqueAtual === 0) return '';
         
-        const hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        
-        const limite30Dias = new Date(hoje);
-        limite30Dias.setDate(limite30Dias.getDate() - 30);
-        
-        // Pega os lançamentos dos últimos 30 dias (ou de todo o período se não tiver recente)
-        const consumosRecentes = consumos.filter(h => new Date(h.data_referencia) >= limite30Dias);
-        const consumosBase = consumosRecentes.length > 0 ? consumosRecentes : consumos;
-        
-        const primeiraData = new Date(consumosBase[0].data_referencia);
-        primeiraData.setHours(0,0,0,0);
-        
-        const timeDiff = hoje.getTime() - primeiraData.getTime();
-        let diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
-        if (diffDays <= 0) diffDays = 1; // Previne divisão por zero se o lançamento foi hoje
-        
-        const totalConsumido = consumosBase.reduce((acc, obj) => acc + obj.consumido, 0);
-        const mediaDiaria = totalConsumido / diffDays;
-        
-        const estoqueAtual = state.estoque_total[prod.id] || 0;
-        const duraDias = mediaDiaria > 0 ? (estoqueAtual / mediaDiaria).toFixed(1) : 0;
+        const mediaDiaria = prov.mediaDiaria;
+        const estoqueAtual = prov.estoqueAtual;
+        const duraDias = prov.duraDias;
         
         // Alerta de 10% (3 dias ou menos)
         const isCritico = duraDias <= 3 && estoqueAtual > 0;

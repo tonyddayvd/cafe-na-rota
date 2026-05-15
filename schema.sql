@@ -17,6 +17,7 @@ CREATE TABLE produtos (
     categoria TEXT DEFAULT 'insumo', -- 'insumo' ou 'ativo'
     unidade_medida TEXT DEFAULT 'un', -- 'un', 'g', 'ml', 'kg'
     capacidade_unidade NUMERIC(15,3) DEFAULT 1, -- Para cálculo de rendimento (ex: 1 copo = 100ml)
+    is_principal BOOLEAN DEFAULT FALSE,
     ativo BOOLEAN DEFAULT TRUE,
     criado_em TIMESTAMPTZ DEFAULT NOW()
 );

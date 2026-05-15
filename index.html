@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260502_11">
+    <link rel="stylesheet" href="styles.css?v=20260502_12">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -141,6 +141,10 @@
         <section id="view-estoque" class="view">
             <h2>Controle de Estoque</h2>
             <p class="subtitle">Adicione as compras de estoque ou feche o dia informando o que sobrou.</p>
+
+            <div id="estoque-principais-cards" class="cards-grid mb-1" style="display: none;">
+                <!-- Cards de itens principais gerados via JS -->
+            </div>
 
             <div class="estoque-list" id="lista-insumos">
                 <!-- Item de Estoque (Template) -->
@@ -368,6 +372,10 @@
             </div>
             <!-- Campo de capacidade oculto: Sistema calculará automaticamente baseado em 100ml/copo -->
             <input type="hidden" id="novo-produto-capacidade" value="100">
+            <div class="input-group" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                <input type="checkbox" id="novo-produto-principal" style="width: 20px; height: 20px;">
+                <label for="novo-produto-principal" style="margin: 0; font-weight: normal; cursor: pointer;">Este é um Item Principal?</label>
+            </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" id="btn-cancelar-produto">Cancelar</button>
                 <button class="btn btn-primary" id="btn-salvar-produto">Salvar</button>
@@ -436,6 +444,6 @@
     </script>
     
     <!-- Forçando o navegador a não usar Cache (Cache Busting V20) -->
-    <script src="app.js?v=20260502_23"></script>
+    <script src="app.js?v=20260502_24"></script>
 </body>
 </html>
