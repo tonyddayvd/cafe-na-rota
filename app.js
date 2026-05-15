@@ -353,6 +353,17 @@ function renderEstoque() {
             const cardClass = isCritico ? "card stat-card alert-danger" : "card stat-card";
             const iconAlert = isCritico ? '<ion-icon name="warning-outline"></ion-icon>' : '<ion-icon name="cube-outline"></ion-icon>';
             
+            // Cálculo do Percentual Abastecido (Estoque / Consumo Médio de 30 dias)
+            let percAbastecidoHTML = '';
+            if (prov.mediaDiaria > 0) {
+                const consumoMensal = prov.mediaDiaria * 30;
+                let perc = (prov.estoqueAtual / consumoMensal) * 100;
+                perc = Math.min(perc, 100); // Se tiver mais que o necessário pro mês, trava em 100%
+                percAbastecidoHTML = `<small style="display:block; margin-top:2px; color: ${isCritico ? 'var(--danger)' : 'var(--text-muted)'};">${perc.toFixed(0)}% de 1 mês abastecido</small>`;
+            } else if (prov.estoqueAtual > 0) {
+                percAbastecidoHTML = `<small style="display:block; margin-top:2px; color: var(--text-muted);">Calculando...</small>`;
+            }
+
             const div = document.createElement('div');
             div.className = cardClass;
             div.innerHTML = `
@@ -360,7 +371,8 @@ function renderEstoque() {
                 <div style="flex: 1;">
                     <p style="font-weight: 600;">${p.nome}</p>
                     <h4 style="font-size: 1.2rem;">${prov.estoqueAtual} ${p.unidade_medida}</h4>
-                    ${isCritico ? `<small style="font-size: 0.7rem;">🚨 Restam ~${prov.duraDias} dias</small>` : ''}
+                    ${percAbastecidoHTML}
+                    ${isCritico ? `<small style="font-size: 0.75rem; display:block; margin-top: 2px;">🚨 Restam ~${prov.duraDias} dias</small>` : ''}
                 </div>
             `;
             containerPrincipais.appendChild(div);
