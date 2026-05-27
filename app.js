@@ -1220,9 +1220,20 @@ function renderMeta() {
         if (listSidebar) {
             listSidebar.innerHTML = '';
             metasAtivas.forEach(m => {
+                const dataVenc = calcularDataVencimento(m.data_inicio, m.dias_esforco);
+                const [anoI, mesI, diaI] = m.data_inicio.split('-');
+                const [anoV, mesV, diaV] = dataVenc.split('-');
+                
                 const li = document.createElement('li');
                 li.className = `meta-sidebar-item ${state.metaSelecionadaId === m.id ? 'active' : ''}`;
-                li.textContent = m.nome;
+                li.style.display = 'flex';
+                li.style.flexDirection = 'column';
+                li.innerHTML = `
+                    <span>${m.nome}</span>
+                    <small style="font-size: 0.7rem; opacity: 0.8; font-weight: normal; margin-top: 2px;">
+                        ${diaI}/${mesI} a ${diaV}/${mesV}
+                    </small>
+                `;
                 li.addEventListener('click', () => {
                     state.metaSelecionadaId = m.id;
                     document.getElementById('meta-setup-panel').style.display = 'none';
@@ -1256,7 +1267,8 @@ function renderMeta() {
         
         // Calcula dias de esforço (se inicia dia 15, com 15 dias encerra exatamente após 15 dias)
         const inicioDate = new Date(metaSelecionada.data_inicio + "T00:00:00");
-        const dataVenc = new Date(calcularDataVencimento(metaSelecionada.data_inicio, metaSelecionada.dias_esforco) + "T00:00:00");
+        const dataVencStr = calcularDataVencimento(metaSelecionada.data_inicio, metaSelecionada.dias_esforco);
+        const dataVenc = new Date(dataVencStr + "T00:00:00");
         const hoje = new Date(getHojeStr() + "T00:00:00");
         
         const totalTime = dataVenc.getTime() - inicioDate.getTime();
@@ -1280,8 +1292,22 @@ function renderMeta() {
         let progresso = (totalArrecadado / parseFloat(metaSelecionada.valor_total)) * 100;
         if (progresso > 100) progresso = 100;
 
+        // Formata datas para o cabeçalho
+        const [anoI, mesI, diaI] = metaSelecionada.data_inicio.split('-');
+        const [anoV, mesV, diaV] = dataVencStr.split('-');
+
+        const metaIniciada = hoje >= inicioDate;
+        
+        let statusBadgeHTML = '';
+        if (!metaIniciada) {
+            statusBadgeHTML = `<span style="background: #eab308; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; vertical-align: middle; margin-left: 8px;">Não Iniciada</span>`;
+        }
+
         // Atualiza DOM do painel ativo
-        document.getElementById('meta-nome-display').textContent = metaSelecionada.nome;
+        document.getElementById('meta-nome-display').innerHTML = `
+            ${metaSelecionada.nome} ${statusBadgeHTML}
+            <small style="font-weight:normal; font-size:0.8rem; display:block; margin-top:2px;">Período: ${diaI}/${mesI}/${anoI} até ${diaV}/${mesV}/${anoV}</small>
+        `;
         const badge = document.getElementById('meta-recorrente-badge');
         if (badge) badge.style.display = metaSelecionada.repetir_mensalmente ? 'inline-block' : 'none';
 
@@ -1293,8 +1319,19 @@ function renderMeta() {
         document.getElementById('meta-tony-total').textContent = formatCurrency(tonyTotal);
         document.getElementById('meta-lys-total').textContent = formatCurrency(lysTotal);
 
-        document.getElementById('meta-diaria-individual').innerHTML = `${formatCurrency(metaDiariaIndiv)} <span style="font-size: 1rem; color: var(--text-muted);">cada um</span>`;
-        document.getElementById('meta-diaria-global').textContent = formatCurrency(metaDiariaGlobal);
+        // Se a meta não iniciou, ajusta a meta diária e o formulário
+        const divMetaDiaria = document.getElementById('meta-diaria-individual').parentElement;
+        const formArrecadacao = document.getElementById('form-lancamento-meta').parentElement;
+
+        if (!metaIniciada) {
+            document.getElementById('meta-diaria-individual').innerHTML = `N/A <span style="font-size: 1rem; color: var(--text-muted);">Meta não iniciada</span>`;
+            document.getElementById('meta-diaria-global').textContent = `Inicia em ${diaI}/${mesI}/${anoI}`;
+            formArrecadacao.style.display = 'none'; // Oculta formulário de arrecadação
+        } else {
+            document.getElementById('meta-diaria-individual').innerHTML = `${formatCurrency(metaDiariaIndiv)} <span style="font-size: 1rem; color: var(--text-muted);">cada um</span>`;
+            document.getElementById('meta-diaria-global').textContent = formatCurrency(metaDiariaGlobal);
+            formArrecadacao.style.display = 'block'; // Mostra formulário de arrecadação
+        }
 
         // Renderiza Gráfico de Participação
         const ctx = document.getElementById('chart-meta-participacao')?.getContext('2d');
@@ -1401,6 +1438,10 @@ function renderHistoricoMetas() {
             lysPerc = (lysTotal / totalArrecadado) * 100;
         }
 
+        const dataVenc = calcularDataVencimento(m.data_inicio, m.dias_esforco);
+        const [anoI, mesI, diaI] = m.data_inicio.split('-');
+        const [anoV, mesV, diaV] = dataVenc.split('-');
+
         const li = document.createElement('li');
         li.className = 'historico-item';
         li.style.display = 'block';
@@ -1413,7 +1454,7 @@ function renderHistoricoMetas() {
 
         li.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong>${m.nome}</strong>
+                <strong>${m.nome} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-muted);">(${diaI}/${mesI}/${anoI} a ${diaV}/${mesV}/${anoV})</span></strong>
                 ${statusBadge}
             </div>
             <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">
