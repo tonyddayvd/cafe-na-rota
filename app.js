@@ -1454,13 +1454,14 @@ function renderHistoricoMetas() {
 
         li.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong>${m.nome} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-muted);">(${diaI}/${mesI}/${anoI} a ${diaV}/${mesV}/${anoV})</span></strong>
+                <strong style="font-size: 1.1rem; color: var(--text-main);">${m.nome}</strong>
                 ${statusBadge}
             </div>
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">
-                Alvo: ${formatCurrency(m.valor_total)} • Arrecadado: ${formatCurrency(totalArrecadado)}
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+                <span style="display: block; margin-bottom: 4px;">📅 <strong>Período:</strong> de ${diaI}/${mesI}/${anoI} até <strong>${diaV}/${mesV}/${anoV} (Encerramento)</strong></span>
+                <span>💰 <strong>Meta:</strong> ${formatCurrency(m.valor_total)} • <strong>Arrecadado:</strong> ${formatCurrency(totalArrecadado)}</span>
             </div>
-            <div style="font-size: 0.85rem; display: flex; gap: 12px;">
+            <div style="font-size: 0.85rem; display: flex; gap: 16px; border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 4px;">
                 <span style="color: #3b82f6;"><strong>Tony:</strong> ${tonyPerc.toFixed(0)}% (${formatCurrency(tonyTotal)})</span>
                 <span style="color: #ec4899;"><strong>Lys:</strong> ${lysPerc.toFixed(0)}% (${formatCurrency(lysTotal)})</span>
             </div>
