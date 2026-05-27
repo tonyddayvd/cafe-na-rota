@@ -707,6 +707,15 @@ async function deletarRegistro(tabela, id) {
 
         if (tabela === 'entradas') state.entradas = state.entradas.filter(e => e.id !== id);
         if (tabela === 'saidas') state.saidas = state.saidas.filter(s => s.id !== id);
+        if (tabela === 'metas_financeiras') {
+            state.metas = state.metas.filter(m => m.id !== id);
+            if (state.metaSelecionadaId === id) {
+                state.metaSelecionadaId = null;
+            }
+            renderMeta();
+            alert('Meta excluída com sucesso!');
+            return;
+        }
         if (tabela === 'lancamentos_meta') {
             state.lancamentos_meta = state.lancamentos_meta.filter(l => l.id !== id);
             renderMeta();
@@ -1178,14 +1187,19 @@ async function verificarVencimentoMetas() {
             meta.status = novoStatus;
             console.log(`Meta "${meta.nome}" encerrada automaticamente como: ${novoStatus}`);
 
-            // Lógica de Meta Recorrente automática
+            // Lógica de Meta Recorrente automática (Soma exatamente 1 mês mantendo os mesmos dias de início)
             if (meta.repetir_mensalmente) {
-                const dataVenc = calcularDataVencimento(meta.data_inicio, meta.dias_esforco);
+                const dataInicioOriginal = new Date(meta.data_inicio + "T00:00:00");
+                const novaDataInicio = new Date(dataInicioOriginal);
+                novaDataInicio.setMonth(novaDataInicio.getMonth() + 1);
+                
+                const novaDataInicioStr = novaDataInicio.toISOString().split('T')[0];
+
                 const { data: novaMeta, error: errInsert } = await supabaseClient.from('metas_financeiras').insert([{
                     nome: meta.nome,
                     valor_total: meta.valor_total,
                     dias_esforco: meta.dias_esforco,
-                    data_inicio: dataVenc, // A nova meta inicia exatamente no dia do vencimento da anterior
+                    data_inicio: novaDataInicioStr,
                     repetir_mensalmente: true,
                     ativa: true,
                     status: 'aberta'
@@ -1312,8 +1326,15 @@ function renderMeta() {
 
         // Atualiza DOM do painel ativo
         document.getElementById('meta-nome-display').innerHTML = `
-            ${metaSelecionada.nome} ${statusBadgeHTML}
-            <small style="font-weight:normal; font-size:0.8rem; display:block; margin-top:2px;">Período: ${diaI}/${mesI}/${anoI} até ${diaV}/${mesV}/${anoV}</small>
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                <div>
+                    <span style="font-size: 1.5rem; font-weight: bold;">${metaSelecionada.nome}</span> ${statusBadgeHTML}
+                    <small style="font-weight:normal; font-size:0.8rem; display:block; margin-top:2px;">Período: ${diaI}/${mesI}/${anoI} até ${diaV}/${mesV}/${anoV}</small>
+                </div>
+                <button class="btn-delete" onclick="deletarRegistro('metas_financeiras', ${metaSelecionada.id})" title="Excluir Esta Meta" style="color: white; font-size: 1.5rem;">
+                    <ion-icon name="trash-outline"></ion-icon>
+                </button>
+            </div>
         `;
         const badge = document.getElementById('meta-recorrente-badge');
         if (badge) badge.style.display = metaSelecionada.repetir_mensalmente ? 'inline-block' : 'none';
@@ -1462,7 +1483,12 @@ function renderHistoricoMetas() {
         li.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <strong style="font-size: 1.1rem; color: var(--text-main);">${m.nome}</strong>
-                ${statusBadge}
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    ${statusBadge}
+                    <button class="btn-delete" onclick="deletarRegistro('metas_financeiras', ${m.id})" title="Excluir Meta">
+                        <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                </div>
             </div>
             <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
                 <span style="display: block; margin-bottom: 4px;">📅 <strong>Período:</strong> de ${diaI}/${mesI}/${anoI} até <strong>${diaV}/${mesV}/${anoV} (Encerramento)</strong></span>
@@ -1572,14 +1598,19 @@ document.getElementById('btn-encerrar-meta').addEventListener('click', async () 
     metaSelecionada.ativa = false;
     metaSelecionada.status = novoStatus;
 
-    // Criar a nova se for recorrente
+    // Criar a nova se for recorrente (Soma exatamente 1 mês mantendo os mesmos dias de início)
     if (metaSelecionada.repetir_mensalmente) {
-        const dataVenc = calcularDataVencimento(metaSelecionada.data_inicio, metaSelecionada.dias_esforco);
+        const dataInicioOriginal = new Date(metaSelecionada.data_inicio + "T00:00:00");
+        const novaDataInicio = new Date(dataInicioOriginal);
+        novaDataInicio.setMonth(novaDataInicio.getMonth() + 1);
+        
+        const novaDataInicioStr = novaDataInicio.toISOString().split('T')[0];
+
         const { data: novaMeta, error: errInsert } = await supabaseClient.from('metas_financeiras').insert([{
             nome: metaSelecionada.nome,
             valor_total: metaSelecionada.valor_total,
             dias_esforco: metaSelecionada.dias_esforco,
-            data_inicio: dataVenc,
+            data_inicio: novaDataInicioStr,
             repetir_mensalmente: true,
             ativa: true,
             status: 'aberta'
@@ -1591,7 +1622,7 @@ document.getElementById('btn-encerrar-meta').addEventListener('click', async () 
         } else {
             state.metas.push(novaMeta[0]);
             state.metaSelecionadaId = novaMeta[0].id;
-            alert(`Meta encerrada e novo ciclo recorrente iniciado com sucesso! Data de início: ${dataVenc}`);
+            alert(`Meta encerrada e novo ciclo recorrente iniciado com sucesso! Data de início: ${novaDataInicioStr}`);
         }
     } else {
         state.metaSelecionadaId = null;
