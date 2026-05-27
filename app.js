@@ -1190,6 +1190,7 @@ async function verificarVencimentoMetas() {
 
             if (!errInsert && novaMeta) {
                 state.metas.push(novaMeta[0]);
+                console.log("Inserida nova meta de repetição complementar no state:", novaMeta[0]);
             }
         }
     }
