@@ -1166,11 +1166,9 @@ function calcularDataVencimento(dataInicioStr, diasEsforco) {
 async function verificarVencimentoMetas() {
     const hojeStr = getHojeStr();
     
-    // Filtra metas abertas que já venceram
+    // Filtra estritamente metas abertas que já venceram
     const metasVencidas = state.metas.filter(m => {
-        if (!m.ativa || m.status !== 'aberta') return false;
-        const dataVenc = calcularDataVencimento(m.data_inicio, m.dias_esforco);
-        return hojeStr > dataVenc;
+        return m.ativa === true && m.status === 'aberta' && hojeStr > calcularDataVencimento(m.data_inicio, m.dias_esforco);
     });
 
     for (const meta of metasVencidas) {
