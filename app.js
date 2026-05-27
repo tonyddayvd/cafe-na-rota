@@ -1141,143 +1141,300 @@ function init() {
     loadState(); 
 }
 
-// --- LÓGICA DE META $ ---
+// --- LÓGICA DE META $ (Evoluída com Múltiplas Metas, Correção de Prazo, Histórico e Recorrência) ---
+
+// Função auxiliar para calcular data de vencimento (data_inicio + dias_esforco)
+function calcularDataVencimento(dataInicioStr, diasEsforco) {
+    const data = new Date(dataInicioStr + "T00:00:00");
+    data.setDate(data.getDate() + parseInt(diasEsforco));
+    return data.toISOString().split('T')[0];
+}
+
+// Rotina de verificação e encerramento automático das metas vencidas
+async function verificarVencimentoMetas() {
+    const hojeStr = getHojeStr();
+    const hoje = new Date(hojeStr + "T00:00:00");
+    
+    // Filtra metas abertas que já venceram
+    const metasVencidas = state.metas.filter(m => {
+        if (!m.ativa || m.status !== 'aberta') return false;
+        const dataVenc = calcularDataVencimento(m.data_inicio, m.dias_esforco);
+        return hojeStr > dataVenc;
+    });
+
+    for (const meta of metasVencidas) {
+        const lancamentos = state.lancamentos_meta.filter(l => l.meta_id === meta.id);
+        const totalArrecadado = lancamentos.reduce((acc, l) => acc + parseFloat(l.valor), 0);
+        const atingiuValor = totalArrecadado >= parseFloat(meta.valor_total);
+        const novoStatus = atingiuValor ? 'concluída' : 'pendente';
+
+        // Atualiza no Supabase
+        const { error } = await supabaseClient.from('metas_financeiras').update({
+            ativa: false,
+            status: novoStatus
+        }).eq('id', meta.id);
+
+        if (!error) {
+            meta.ativa = false;
+            meta.status = novoStatus;
+            console.log(`Meta "${meta.nome}" encerrada automaticamente como: ${novoStatus}`);
+
+            // Lógica de Meta Recorrente automática
+            if (meta.repetir_mensalmente) {
+                const dataVenc = calcularDataVencimento(meta.data_inicio, meta.dias_esforco);
+                const { data: novaMeta, error: errInsert } = await supabaseClient.from('metas_financeiras').insert([{
+                    nome: meta.nome,
+                    valor_total: meta.valor_total,
+                    dias_esforco: meta.dias_esforco,
+                    data_inicio: dataVenc,
+                    repetir_mensalmente: true,
+                    ativa: true,
+                    status: 'aberta'
+                }]).select();
+
+                if (!errInsert && novaMeta) {
+                    state.metas.push(novaMeta[0]);
+                    console.log(`Nova meta recorrente criada automaticamente para: ${meta.nome}`);
+                } else {
+                    console.error("Erro ao criar meta recorrente automática:", errInsert);
+                }
+            }
+        } else {
+            console.error("Erro ao encerrar meta automaticamente:", error);
+        }
+    }
+}
+
 function renderMeta() {
-    const metaAtiva = state.metas.find(m => m.ativa);
-    const panelSetup = document.getElementById('meta-setup-panel');
-    const panelActive = document.getElementById('meta-active-panel');
-
-    if (!metaAtiva) {
-        panelSetup.style.display = 'block';
-        panelActive.style.display = 'none';
-        return;
-    }
-
-    panelSetup.style.display = 'none';
-    panelActive.style.display = 'block';
-
-    const lancamentos = state.lancamentos_meta.filter(l => l.meta_id === metaAtiva.id);
-    const totalArrecadado = lancamentos.reduce((acc, l) => acc + parseFloat(l.valor), 0);
-    const valorRestante = parseFloat(metaAtiva.valor_total) - totalArrecadado;
-    
-    // Calcula dias
-    const inicioDate = new Date(metaAtiva.data_inicio + "T00:00:00"); // Pega o início à meia-noite da data local
-    const hoje = new Date();
-    // Zera horas para a diferença ser exata em dias
-    inicioDate.setHours(0,0,0,0);
-    hoje.setHours(0,0,0,0);
-    
-    const timeDiff = hoje.getTime() - inicioDate.getTime();
-    let diasPassados = Math.floor(timeDiff / (1000 * 3600 * 24));
-    if (diasPassados < 0) diasPassados = 0; // Se a meta começa no futuro
-
-    let diasRestantes = parseInt(metaAtiva.dias_esforco) - diasPassados;
-    if (diasRestantes <= 0) diasRestantes = 1; // Proteção para não dar infinity se atrasar, exige arrecadar tudo no último dia.
-
-    let metaDiariaGlobal = 0;
-    if (valorRestante > 0) {
-        metaDiariaGlobal = valorRestante / diasRestantes;
-    }
-    const metaDiariaIndiv = metaDiariaGlobal / 2;
-
-    const tonyTotal = lancamentos.filter(l => l.responsavel === 'Tony').reduce((acc, l) => acc + parseFloat(l.valor), 0);
-    const lysTotal = lancamentos.filter(l => l.responsavel === 'Lys').reduce((acc, l) => acc + parseFloat(l.valor), 0);
-
-    let progresso = (totalArrecadado / parseFloat(metaAtiva.valor_total)) * 100;
-    if (progresso > 100) progresso = 100;
-
-    // Atualiza DOM
-    document.getElementById('meta-nome-display').textContent = metaAtiva.nome;
-    const badge = document.getElementById('meta-recorrente-badge');
-    if (badge) badge.style.display = metaAtiva.repetir_mensalmente ? 'inline-block' : 'none';
-
-    document.getElementById('meta-valor-display').textContent = `${formatCurrency(totalArrecadado)} / ${formatCurrency(metaAtiva.valor_total)}`;
-    document.getElementById('meta-progress').style.width = `${progresso}%`;
-    document.getElementById('meta-perc-text').textContent = `${progresso.toFixed(1)}%`;
-    document.getElementById('meta-dias-restantes').textContent = diasRestantes;
-
-    document.getElementById('meta-tony-total').textContent = formatCurrency(tonyTotal);
-    document.getElementById('meta-lys-total').textContent = formatCurrency(lysTotal);
-
-    document.getElementById('meta-diaria-individual').innerHTML = `${formatCurrency(metaDiariaIndiv)} <span style="font-size: 1rem; color: var(--text-muted);">cada um</span>`;
-    document.getElementById('meta-diaria-global').textContent = formatCurrency(metaDiariaGlobal);
-
-    // Renderiza Gráfico de Participação
-    const ctx = document.getElementById('chart-meta-participacao')?.getContext('2d');
-    if (ctx && window.Chart) {
-        if (charts.meta_participacao) charts.meta_participacao.destroy();
+    // Roda a verificação de vencimento antes de renderizar
+    verificarVencimentoMetas().then(() => {
+        const metasAtivas = state.metas.filter(m => m.ativa && m.status === 'aberta');
         
-        let dataTony = tonyTotal;
-        let dataLys = lysTotal;
-        
-        // Se ambos são 0, mostra um cinza vazio para não ficar em branco
-        if(dataTony === 0 && dataLys === 0) {
-            dataTony = 0.1;
-            dataLys = 0.1;
+        // Define qual meta está selecionada
+        if (!state.metaSelecionadaId && metasAtivas.length > 0) {
+            state.metaSelecionadaId = metasAtivas[0].id;
         }
 
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        // Renderiza Barra Lateral "Minhas Metas"
+        const listSidebar = document.getElementById('lista-metas-sidebar');
+        if (listSidebar) {
+            listSidebar.innerHTML = '';
+            metasAtivas.forEach(m => {
+                const li = document.createElement('li');
+                li.className = `meta-sidebar-item ${state.metaSelecionadaId === m.id ? 'active' : ''}`;
+                li.textContent = m.nome;
+                li.addEventListener('click', () => {
+                    state.metaSelecionadaId = m.id;
+                    document.getElementById('meta-setup-panel').style.display = 'none';
+                    document.getElementById('meta-active-panel').style.display = 'block';
+                    renderMeta();
+                });
+                listSidebar.appendChild(li);
+            });
+        }
+
+        const panelSetup = document.getElementById('meta-setup-panel');
+        const panelActive = document.getElementById('meta-active-panel');
+
+        // Se nenhuma meta estiver selecionada ou ativa, mostra setup de nova meta
+        const metaSelecionada = state.metas.find(m => m.id === state.metaSelecionadaId && m.ativa && m.status === 'aberta');
+
+        if (!metaSelecionada) {
+            panelSetup.style.display = 'block';
+            panelActive.style.display = 'none';
+            document.getElementById('meta-setup-titulo').textContent = 'Criar Nova Meta';
+            renderHistoricoMetas();
+            return;
+        }
+
+        panelSetup.style.display = 'none';
+        panelActive.style.display = 'block';
+
+        const lancamentos = state.lancamentos_meta.filter(l => l.meta_id === metaSelecionada.id);
+        const totalArrecadado = lancamentos.reduce((acc, l) => acc + parseFloat(l.valor), 0);
+        const valorRestante = parseFloat(metaSelecionada.valor_total) - totalArrecadado;
         
-        charts.meta_participacao = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Tony', 'Lys'],
-                datasets: [{
-                    data: [dataTony, dataLys],
-                    backgroundColor: [
-                        tonyTotal === 0 && lysTotal === 0 ? '#cccccc' : '#3b82f6', 
-                        tonyTotal === 0 && lysTotal === 0 ? '#dddddd' : '#ec4899'
-                    ],
-                    borderWidth: isDark ? 2 : 3,
-                    borderColor: isDark ? '#2d1a0d' : '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '70%',
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                if (tonyTotal === 0 && lysTotal === 0) return ' Sem arrecadação';
-                                const percent = ((context.raw / totalArrecadado) * 100).toFixed(1);
-                                return ` ${context.label}: ${percent}% (${formatCurrency(context.raw)})`;
+        // Calcula dias de esforço (se inicia dia 15, com 15 dias encerra exatamente após 15 dias)
+        const inicioDate = new Date(metaSelecionada.data_inicio + "T00:00:00");
+        const dataVenc = new Date(calcularDataVencimento(metaSelecionada.data_inicio, metaSelecionada.dias_esforco) + "T00:00:00");
+        const hoje = new Date(getHojeStr() + "T00:00:00");
+        
+        const totalTime = dataVenc.getTime() - inicioDate.getTime();
+        const totalDias = Math.round(totalTime / (1000 * 3600 * 24));
+
+        const timeDiff = dataVenc.getTime() - hoje.getTime();
+        let diasRestantes = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        if (diasRestantes < 0) diasRestantes = 0;
+
+        let metaDiariaGlobal = 0;
+        if (valorRestante > 0 && diasRestantes > 0) {
+            metaDiariaGlobal = valorRestante / diasRestantes;
+        } else if (valorRestante > 0) {
+            metaDiariaGlobal = valorRestante; // Se hoje é o último dia
+        }
+        const metaDiariaIndiv = metaDiariaGlobal / 2;
+
+        const tonyTotal = lancamentos.filter(l => l.responsavel === 'Tony').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+        const lysTotal = lancamentos.filter(l => l.responsavel === 'Lys').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+
+        let progresso = (totalArrecadado / parseFloat(metaSelecionada.valor_total)) * 100;
+        if (progresso > 100) progresso = 100;
+
+        // Atualiza DOM do painel ativo
+        document.getElementById('meta-nome-display').textContent = metaSelecionada.nome;
+        const badge = document.getElementById('meta-recorrente-badge');
+        if (badge) badge.style.display = metaSelecionada.repetir_mensalmente ? 'inline-block' : 'none';
+
+        document.getElementById('meta-valor-display').textContent = `${formatCurrency(totalArrecadado)} / ${formatCurrency(metaSelecionada.valor_total)}`;
+        document.getElementById('meta-progress').style.width = `${progresso}%`;
+        document.getElementById('meta-perc-text').textContent = `${progresso.toFixed(1)}%`;
+        document.getElementById('meta-dias-restantes').textContent = diasRestantes;
+
+        document.getElementById('meta-tony-total').textContent = formatCurrency(tonyTotal);
+        document.getElementById('meta-lys-total').textContent = formatCurrency(lysTotal);
+
+        document.getElementById('meta-diaria-individual').innerHTML = `${formatCurrency(metaDiariaIndiv)} <span style="font-size: 1rem; color: var(--text-muted);">cada um</span>`;
+        document.getElementById('meta-diaria-global').textContent = formatCurrency(metaDiariaGlobal);
+
+        // Renderiza Gráfico de Participação
+        const ctx = document.getElementById('chart-meta-participacao')?.getContext('2d');
+        if (ctx && window.Chart) {
+            if (charts.meta_participacao) charts.meta_participacao.destroy();
+            
+            let dataTony = tonyTotal;
+            let dataLys = lysTotal;
+            
+            if(dataTony === 0 && dataLys === 0) {
+                dataTony = 0.1;
+                dataLys = 0.1;
+            }
+
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            
+            charts.meta_participacao = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Tony', 'Lys'],
+                    datasets: [{
+                        data: [dataTony, dataLys],
+                        backgroundColor: [
+                            tonyTotal === 0 && lysTotal === 0 ? '#cccccc' : '#3b82f6', 
+                            tonyTotal === 0 && lysTotal === 0 ? '#dddddd' : '#ec4899'
+                        ],
+                        borderWidth: isDark ? 2 : 3,
+                        borderColor: isDark ? '#2d1a0d' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (tonyTotal === 0 && lysTotal === 0) return ' Sem arrecadação';
+                                    const percent = ((context.raw / (tonyTotal + lysTotal)) * 100).toFixed(1);
+                                    return ` ${context.label}: ${percent}% (${formatCurrency(context.raw)})`;
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
+
+        // Renderiza Lista de Lançamentos
+        const list = document.getElementById('meta-transactions-list');
+        list.innerHTML = '';
+        const lancSorted = [...lancamentos].sort((a,b) => new Date(b.criado_em || b.data_lancamento).getTime() - new Date(a.criado_em || a.data_lancamento).getTime());
+        
+        if (lancSorted.length === 0) {
+            list.innerHTML = '<li>Nenhum lançamento feito.</li>';
+        } else {
+            lancSorted.forEach(l => {
+                const li = document.createElement('li');
+                li.className = 'historico-item';
+                const cor = l.responsavel === 'Tony' ? '#3b82f6' : '#ec4899';
+                li.innerHTML = `
+                    <div style="flex:1">
+                        <p style="color: ${cor}"><strong>${l.responsavel}</strong> guardou</p>
+                        <small>${l.data_lancamento.split('-').reverse().join('/')}</small>
+                    </div>
+                    <strong>+${formatCurrency(l.valor)}</strong>
+                    <button class="btn-delete" onclick="deletarRegistro('lancamentos_meta', ${l.id})" title="Excluir">
+                        <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        renderHistoricoMetas();
+    });
+}
+
+function renderHistoricoMetas() {
+    const listHistorico = document.getElementById('lista-historico-metas');
+    if (!listHistorico) return;
+    listHistorico.innerHTML = '';
+
+    const metasHistorico = state.metas.filter(m => !m.ativa || m.status === 'concluída' || m.status === 'pendente');
+
+    if (metasHistorico.length === 0) {
+        listHistorico.innerHTML = '<li>Nenhuma meta finalizada no histórico.</li>';
+        return;
     }
 
-    // Renderiza Lista
-    const list = document.getElementById('meta-transactions-list');
-    list.innerHTML = '';
-    const lancSorted = [...lancamentos].sort((a,b) => new Date(b.criado_em || b.data_lancamento).getTime() - new Date(a.criado_em || a.data_lancamento).getTime());
-    
-    if (lancSorted.length === 0) {
-        list.innerHTML = '<li>Nenhum lançamento feito.</li>';
-    } else {
-        lancSorted.forEach(l => {
-            const li = document.createElement('li');
-            li.className = 'historico-item';
-            const cor = l.responsavel === 'Tony' ? '#3b82f6' : '#ec4899';
-            li.innerHTML = `
-                <div style="flex:1">
-                    <p style="color: ${cor}"><strong>${l.responsavel}</strong> guardou</p>
-                    <small>${l.data_lancamento.split('-').reverse().join('/')}</small>
-                </div>
-                <strong>+${formatCurrency(l.valor)}</strong>
-                <button class="btn-delete" onclick="deletarRegistro('lancamentos_meta', ${l.id})" title="Excluir">
-                    <ion-icon name="trash-outline"></ion-icon>
-                </button>
-            `;
-            list.appendChild(li);
-        });
-    }
+    metasHistorico.forEach(m => {
+        const lancamentos = state.lancamentos_meta.filter(l => l.meta_id === m.id);
+        const totalArrecadado = lancamentos.reduce((acc, l) => acc + parseFloat(l.valor), 0);
+        
+        const tonyTotal = lancamentos.filter(l => l.responsavel === 'Tony').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+        const lysTotal = lancamentos.filter(l => l.responsavel === 'Lys').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+
+        let tonyPerc = 0;
+        let lysPerc = 0;
+        if (totalArrecadado > 0) {
+            tonyPerc = (tonyTotal / totalArrecadado) * 100;
+            lysPerc = (lysTotal / totalArrecadado) * 100;
+        }
+
+        const li = document.createElement('li');
+        li.className = 'historico-item';
+        li.style.display = 'block';
+        li.style.padding = '12px';
+        li.style.marginBottom = '10px';
+        
+        const statusBadge = m.status === 'concluída' 
+            ? `<span style="background: var(--success); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">Concluída</span>`
+            : `<span style="background: var(--danger); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem;">Pendente</span>`;
+
+        li.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong>${m.nome}</strong>
+                ${statusBadge}
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">
+                Alvo: ${formatCurrency(m.valor_total)} • Arrecadado: ${formatCurrency(totalArrecadado)}
+            </div>
+            <div style="font-size: 0.85rem; display: flex; gap: 12px;">
+                <span style="color: #3b82f6;"><strong>Tony:</strong> ${tonyPerc.toFixed(0)}% (${formatCurrency(tonyTotal)})</span>
+                <span style="color: #ec4899;"><strong>Lys:</strong> ${lysPerc.toFixed(0)}% (${formatCurrency(lysTotal)})</span>
+            </div>
+        `;
+        listHistorico.appendChild(li);
+    });
 }
+
+// Gatilho do botão "+ Nova Meta" na barra lateral
+document.getElementById('btn-nova-meta-trigger')?.addEventListener('click', () => {
+    state.metaSelecionadaId = null;
+    document.getElementById('meta-active-panel').style.display = 'none';
+    document.getElementById('meta-setup-panel').style.display = 'block';
+    document.getElementById('meta-setup-titulo').textContent = 'Criar Nova Meta';
+});
 
 document.getElementById('form-criar-meta').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1296,7 +1453,8 @@ document.getElementById('form-criar-meta').addEventListener('submit', async (e) 
         dias_esforco: dias,
         data_inicio: inicio,
         repetir_mensalmente: repetir,
-        ativa: true
+        ativa: true,
+        status: 'aberta'
     }]).select();
 
     btn.textContent = 'Iniciar Meta'; btn.disabled = false;
@@ -1307,6 +1465,7 @@ document.getElementById('form-criar-meta').addEventListener('submit', async (e) 
     }
 
     state.metas.push(data[0]);
+    state.metaSelecionadaId = data[0].id; // Seleciona automaticamente a nova meta
     e.target.reset();
     renderMeta();
 });
@@ -1316,13 +1475,15 @@ document.getElementById('form-lancamento-meta').addEventListener('submit', async
     const responsavel = document.getElementById('meta-lanc-responsavel').value;
     const valor = parseFloat(document.getElementById('meta-lanc-valor').value);
     const dataInput = document.getElementById('meta-lanc-data').value;
-    const metaAtiva = state.metas.find(m => m.ativa);
+    
+    const metaSelecionada = state.metas.find(m => m.id === state.metaSelecionadaId);
+    if (!metaSelecionada) return;
 
     const btn = e.target.querySelector('button');
     btn.textContent = 'Salvando...'; btn.disabled = true;
 
     const { data, error } = await supabaseClient.from('lancamentos_meta').insert([{
-        meta_id: metaAtiva.id,
+        meta_id: metaSelecionada.id,
         valor: valor,
         responsavel: responsavel,
         data_lancamento: dataInput || getHojeStr()
@@ -1338,54 +1499,53 @@ document.getElementById('form-lancamento-meta').addEventListener('submit', async
 });
 
 document.getElementById('btn-encerrar-meta').addEventListener('click', async () => {
-    const metaAtiva = state.metas.find(m => m.ativa);
-    if (!metaAtiva) return;
+    const metaSelecionada = state.metas.find(m => m.id === state.metaSelecionadaId);
+    if (!metaSelecionada) return;
 
-    let criarNova = false;
-    let novaDataInicio = "";
+    const lancamentos = state.lancamentos_meta.filter(l => l.meta_id === metaSelecionada.id);
+    const totalArrecadado = lancamentos.reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    const atingiuValor = totalArrecadado >= parseFloat(metaSelecionada.valor_total);
+    const novoStatus = atingiuValor ? 'concluída' : 'pendente';
 
-    if (metaAtiva.repetir_mensalmente) {
-        novaDataInicio = prompt('Esta meta é recorrente! Se você quiser iniciar o próximo ciclo agora, digite a data de início (AAAA-MM-DD).\nExemplo: 2026-06-01\n\nSe quiser apenas encerrar permanentemente, clique em Cancelar.');
-        if (novaDataInicio !== null && novaDataInicio.trim() !== "") {
-            // Validar formato simples
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(novaDataInicio.trim())) {
-                alert('Formato de data inválido. A meta atual NÃO será encerrada. Tente novamente usando o formato AAAA-MM-DD.');
-                return;
-            }
-            criarNova = true;
-        } else {
-            if(!confirm('Você não digitou uma data. Deseja encerrar a meta ATUAL e DESATIVAR a repetição permanente?')) return;
-        }
-    } else {
-        if(!confirm('Tem certeza que deseja encerrar a meta atual? Você poderá iniciar uma nova meta depois.')) return;
-    }
-    
+    if(!confirm(`Tem certeza que deseja encerrar a meta "${metaSelecionada.nome}" agora? Status final: ${novoStatus.toUpperCase()}`)) return;
+
     // Encerrar a atual
-    const { error: errUpdate } = await supabaseClient.from('metas_financeiras').update({ ativa: false }).eq('id', metaAtiva.id);
+    const { error: errUpdate } = await supabaseClient.from('metas_financeiras').update({
+        ativa: false,
+        status: novoStatus
+    }).eq('id', metaSelecionada.id);
+
     if (errUpdate) {
         console.error(errUpdate);
         return alert('Erro ao encerrar meta.');
     }
-    metaAtiva.ativa = false;
+    
+    metaSelecionada.ativa = false;
+    metaSelecionada.status = novoStatus;
 
-    // Criar a nova se for o caso
-    if (criarNova) {
+    // Criar a nova se for recorrente
+    if (metaSelecionada.repetir_mensalmente) {
+        const dataVenc = calcularDataVencimento(metaSelecionada.data_inicio, metaSelecionada.dias_esforco);
         const { data: novaMeta, error: errInsert } = await supabaseClient.from('metas_financeiras').insert([{
-            nome: metaAtiva.nome,
-            valor_total: metaAtiva.valor_total,
-            dias_esforco: metaAtiva.dias_esforco,
-            data_inicio: novaDataInicio.trim(),
+            nome: metaSelecionada.nome,
+            valor_total: metaSelecionada.valor_total,
+            dias_esforco: metaSelecionada.dias_esforco,
+            data_inicio: dataVenc,
             repetir_mensalmente: true,
-            ativa: true
+            ativa: true,
+            status: 'aberta'
         }]).select();
 
         if (errInsert) {
             console.error(errInsert);
-            alert('A meta anterior foi encerrada, mas houve erro ao criar a do próximo mês!');
+            alert('A meta anterior foi encerrada, mas houve erro ao criar o próximo ciclo recorrente!');
         } else {
             state.metas.push(novaMeta[0]);
-            alert('Meta do próximo mês iniciada com sucesso!');
+            state.metaSelecionadaId = novaMeta[0].id;
+            alert(`Meta encerrada e novo ciclo recorrente iniciado com sucesso! Data de início: ${dataVenc}`);
         }
+    } else {
+        state.metaSelecionadaId = null;
     }
 
     renderMeta();

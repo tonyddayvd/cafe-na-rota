@@ -576,3 +576,97 @@ ul { list-style: none; }
     cursor: pointer;
     font-weight: 500;
 }
+
+/* Estilos de Múltiplas Metas */
+.meta-container-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+    .meta-container-layout {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+    .meta-sidebar {
+        width: 250px;
+        flex-shrink: 0;
+        position: sticky;
+        top: calc(var(--top-height) + 16px);
+    }
+    .meta-main-panel {
+        flex: 1;
+    }
+}
+
+.meta-sidebar {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    box-shadow: var(--shadow-soft);
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.metas-sidebar-list {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+@media (min-width: 768px) {
+    .metas-sidebar-list {
+        flex-direction: column;
+        overflow-x: visible;
+        padding-bottom: 0;
+    }
+}
+
+.meta-sidebar-item {
+    padding: 10px 14px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+    text-align: center;
+}
+
+@media (min-width: 768px) {
+    .meta-sidebar-item {
+        text-align: left;
+        white-space: normal;
+    }
+}
+
+.meta-sidebar-item:hover {
+    border-color: var(--primary-light);
+    background-color: rgba(123, 75, 49, 0.05);
+}
+
+.meta-sidebar-item.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+

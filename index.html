@@ -218,106 +218,125 @@
                 <button id="btn-reset-dados" class="btn btn-danger mt-1 text-sm">
                     <ion-icon name="warning"></ion-icon> Apagar Todos os Dados do Banco
                 </button>
-            </div>
-        </section>
-
-        <!-- VIEW: META $ -->
+               <!-- VIEW: META $ -->
         <section id="view-meta" class="view">
-            <h2>Meta do Casal</h2>
-            
-            <!-- Estado sem meta ativa -->
-            <div id="meta-setup-panel" class="card">
-                <h3>Criar Nova Meta</h3>
-                <form id="form-criar-meta">
-                    <div class="input-group">
-                        <label>Objetivo (ex: Carro, Viagem)</label>
-                        <input type="text" id="nova-meta-nome" required>
+            <div class="meta-container-layout">
+                <!-- Barra lateral de metas -->
+                <aside class="meta-sidebar">
+                    <div class="sidebar-header">
+                        <h3>Minhas Metas</h3>
+                        <button id="btn-nova-meta-trigger" class="btn btn-secondary text-xs" style="padding: 6px 10px; width: auto; display: inline-flex;">+ Nova Meta</button>
                     </div>
-                    <div class="input-group">
-                        <label>Valor Total Necessário (R$)</label>
-                        <input type="number" id="nova-meta-valor" step="0.01" min="1" required>
+                    <ul id="lista-metas-sidebar" class="metas-sidebar-list">
+                        <!-- Preenchido via JS -->
+                    </ul>
+                </aside>
+
+                <!-- Conteúdo principal da meta -->
+                <div class="meta-main-panel">
+                    <!-- Estado sem meta ativa/selecionada ou criando nova meta -->
+                    <div id="meta-setup-panel" class="card">
+                        <h3 id="meta-setup-titulo">Criar Nova Meta</h3>
+                        <form id="form-criar-meta">
+                            <div class="input-group">
+                                <label>Objetivo (ex: Carro, Viagem)</label>
+                                <input type="text" id="nova-meta-nome" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Valor Total Necessário (R$)</label>
+                                <input type="number" id="nova-meta-valor" step="0.01" min="1" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Dias de Esforço</label>
+                                <input type="number" id="nova-meta-dias" min="1" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Data de Início</label>
+                                <input type="date" id="nova-meta-inicio" required>
+                            </div>
+                            <div class="input-group" style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="nova-meta-repetir" style="width: 20px; height: 20px;">
+                                <label for="nova-meta-repetir" style="margin: 0; font-weight: normal;">Meta Recorrente? (Nova meta automática ao encerrar)</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-large mt-1">Iniciar Meta</button>
+                        </form>
                     </div>
-                    <div class="input-group">
-                        <label>Dias de Esforço</label>
-                        <input type="number" id="nova-meta-dias" min="1" required>
+
+                    <!-- Estado com meta ativa selecionada -->
+                    <div id="meta-active-panel" style="display:none;">
+                        <div class="caixa-resumo" style="background: linear-gradient(135deg, var(--primary-color) 0%, #16a34a 100%); margin-bottom: 1rem;">
+                            <p id="meta-nome-display" style="display: inline-block; margin-right: 10px;">Nome da Meta</p>
+                            <span id="meta-recorrente-badge" style="display: none; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; vertical-align: middle;">🔄 Recorrente</span>
+                            <h3 id="meta-valor-display">R$ 0,00 / R$ 0,00</h3>
+                            <div class="progress-bar-container" style="background: rgba(0,0,0,0.2); height: 16px; margin: 10px 0;">
+                                <div class="progress-bar" id="meta-progress" style="background: #fff;"></div>
+                            </div>
+                            <p class="text-sm"><span id="meta-perc-text">0%</span> • Faltam <span id="meta-dias-restantes">0</span> dias</p>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem;">
+                            <div class="card stat-card" style="border-left-color: #3b82f6; padding: 10px; display: block; text-align: center;">
+                                <p style="font-size: 0.8rem; margin-bottom: 4px;">Tony</p>
+                                <h4 id="meta-tony-total" style="color: #3b82f6; font-size: 1.1rem; white-space: normal; word-break: break-all;">R$ 0,00</h4>
+                            </div>
+                            <div class="card stat-card" style="border-left-color: #ec4899; padding: 10px; display: block; text-align: center;">
+                                <p style="font-size: 0.8rem; margin-bottom: 4px;">Lys</p>
+                                <h4 id="meta-lys-total" style="color: #ec4899; font-size: 1.1rem; white-space: normal; word-break: break-all;">R$ 0,00</h4>
+                            </div>
+                        </div>
+
+                        <div class="card chart-container mb-2" style="height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 5px;">
+                            <h3 style="font-size: 0.9rem; margin-bottom: 5px; text-align: center; color: var(--text-muted);">Participação (%)</h3>
+                            <div style="position: relative; width: 100%; height: 180px;">
+                                <canvas id="chart-meta-participacao"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="card" style="text-align: center; border: 2px solid var(--success);">
+                            <h3>Meta Diária (Hoje)</h3>
+                            <p class="text-sm var-text-muted mb-1">Valor alvo calculado para bater a meta a tempo.</p>
+                            <h2 style="color: var(--success); font-size: 2rem;" id="meta-diaria-individual">R$ 0,00 <span style="font-size: 1rem; color: var(--text-muted);">cada um</span></h2>
+                            <p class="text-xs var-text-muted mt-1">Total diário: <span id="meta-diaria-global">R$ 0,00</span></p>
+                        </div>
+
+                        <div class="card mt-1">
+                            <h3>Registrar Arrecadação</h3>
+                            <form id="form-lancamento-meta">
+                                <div class="input-group">
+                                    <label>Data</label>
+                                    <input type="date" id="meta-lanc-data">
+                                </div>
+                                <div class="input-group">
+                                    <label>Quem Arrecadou?</label>
+                                    <select id="meta-lanc-responsavel" required>
+                                        <option value="Tony">Tony</option>
+                                        <option value="Lys">Lys</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label>Valor (R$)</label>
+                                    <input type="number" id="meta-lanc-valor" step="0.01" min="0.01" required>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-large" style="background: var(--success); color: white;">Adicionar à Meta</button>
+                            </form>
+                        </div>
+                        
+                        <div class="recent-transactions mt-2">
+                            <h3>Últimos Lançamentos da Meta</h3>
+                            <ul id="meta-transactions-list"></ul>
+                        </div>
+                        
+                        <button id="btn-encerrar-meta" class="btn btn-danger mt-2 text-sm">Encerrar Meta Atual</button>
                     </div>
-                    <div class="input-group">
-                        <label>Data de Início</label>
-                        <input type="date" id="nova-meta-inicio" required>
-                    </div>
-                    <div class="input-group" style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="nova-meta-repetir" style="width: 20px; height: 20px;">
-                        <label for="nova-meta-repetir" style="margin: 0; font-weight: normal;">Repetir mensamente (Nova meta automática ao encerrar)</label>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-large mt-1">Iniciar Meta</button>
-                </form>
+                </div>
             </div>
 
-            <!-- Estado com meta ativa -->
-            <div id="meta-active-panel" style="display:none;">
-                <div class="caixa-resumo" style="background: linear-gradient(135deg, var(--primary-color) 0%, #16a34a 100%); margin-bottom: 1rem;">
-                    <p id="meta-nome-display" style="display: inline-block; margin-right: 10px;">Nome da Meta</p>
-                    <span id="meta-recorrente-badge" style="display: none; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; vertical-align: middle;">🔄 Mensal</span>
-                    <h3 id="meta-valor-display">R$ 0,00 / R$ 0,00</h3>
-                    <div class="progress-bar-container" style="background: rgba(0,0,0,0.2); height: 16px; margin: 10px 0;">
-                        <div class="progress-bar" id="meta-progress" style="background: #fff;"></div>
-                    </div>
-                    <p class="text-sm"><span id="meta-perc-text">0%</span> • Faltam <span id="meta-dias-restantes">0</span> dias</p>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem;">
-                    <div class="card stat-card" style="border-left-color: #3b82f6; padding: 10px; display: block; text-align: center;">
-                        <p style="font-size: 0.8rem; margin-bottom: 4px;">Tony</p>
-                        <h4 id="meta-tony-total" style="color: #3b82f6; font-size: 1.1rem; white-space: normal; word-break: break-all;">R$ 0,00</h4>
-                    </div>
-                    <div class="card stat-card" style="border-left-color: #ec4899; padding: 10px; display: block; text-align: center;">
-                        <p style="font-size: 0.8rem; margin-bottom: 4px;">Lys</p>
-                        <h4 id="meta-lys-total" style="color: #ec4899; font-size: 1.1rem; white-space: normal; word-break: break-all;">R$ 0,00</h4>
-                    </div>
-                </div>
-
-                <div class="card chart-container mb-2" style="height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 5px;">
-                    <h3 style="font-size: 0.9rem; margin-bottom: 5px; text-align: center; color: var(--text-muted);">Participação (%)</h3>
-                    <div style="position: relative; width: 100%; height: 180px;">
-                        <canvas id="chart-meta-participacao"></canvas>
-                    </div>
-                </div>
-
-                <div class="card" style="text-align: center; border: 2px solid var(--success);">
-                    <h3>Meta Diária (Hoje)</h3>
-                    <p class="text-sm var-text-muted mb-1">Valor alvo calculado para bater a meta a tempo.</p>
-                    <h2 style="color: var(--success); font-size: 2rem;" id="meta-diaria-individual">R$ 0,00 <span style="font-size: 1rem; color: var(--text-muted);">cada um</span></h2>
-                    <p class="text-xs var-text-muted mt-1">Total diário: <span id="meta-diaria-global">R$ 0,00</span></p>
-                </div>
-
-                <div class="card mt-1">
-                    <h3>Registrar Arrecadação</h3>
-                    <form id="form-lancamento-meta">
-                        <div class="input-group">
-                            <label>Data</label>
-                            <input type="date" id="meta-lanc-data">
-                        </div>
-                        <div class="input-group">
-                            <label>Quem Arrecadou?</label>
-                            <select id="meta-lanc-responsavel" required>
-                                <option value="Tony">Tony</option>
-                                <option value="Lys">Lys</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Valor (R$)</label>
-                            <input type="number" id="meta-lanc-valor" step="0.01" min="0.01" required>
-                        </div>
-                        <button type="submit" class="btn btn-success btn-large" style="background: var(--success); color: white;">Adicionar à Meta</button>
-                    </form>
-                </div>
-                
-                <div class="recent-transactions mt-2">
-                    <h3>Últimos Lançamentos da Meta</h3>
-                    <ul id="meta-transactions-list"></ul>
-                </div>
-                
-                <button id="btn-encerrar-meta" class="btn btn-danger mt-2 text-sm">Encerrar Meta Atual</button>
+            <!-- Seção de Histórico de Metas -->
+            <div class="card mt-2">
+                <h3>Histórico de Metas (Concluídas / Pendentes)</h3>
+                <ul id="lista-historico-metas" class="historico-lista">
+                    <!-- Preenchido via JS -->
+                </ul>
             </div>
         </section>
     </main>

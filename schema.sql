@@ -95,6 +95,7 @@ CREATE TABLE metas_financeiras (
     data_inicio DATE NOT NULL,
     repetir_mensalmente BOOLEAN DEFAULT FALSE,
     ativa BOOLEAN DEFAULT TRUE,
+    status TEXT DEFAULT 'aberta' CHECK (status IN ('aberta', 'concluída', 'pendente')),
     criado_em TIMESTAMPTZ DEFAULT NOW()
 );
 
