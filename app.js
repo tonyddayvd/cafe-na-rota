@@ -30,7 +30,8 @@ let state = {
 let charts = {
     lucro: null,
     dias: null,
-    meta_participacao: null
+    meta_participacao: null,
+    meta_rel_contrib: null
 };
 
 const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -1710,12 +1711,12 @@ function renderRelatoriosMetas() {
     document.getElementById('meta-rel-taxa-sucesso').textContent = `${taxaSucesso.toFixed(0)}%`;
     document.getElementById('meta-rel-ciclos-total').textContent = `${metasConcluidas.length} concluídas de ${metasFinalizadas.length} ciclos`;
 
-    // 3. Placar de Contribuição Global: Somente em metas concluídas
-    const metasConcluidasIds = metasConcluidas.map(m => m.id);
-    const lancamentosMetasConcluidas = state.lancamentos_meta.filter(l => metasConcluidasIds.includes(l.meta_id));
+    // 3. Placar de Contribuição Global: Soma de todas as metas históricas finalizadas (concluídas ou pendentes)
+    const metasFinalizadasIds = metasFinalizadas.map(m => m.id);
+    const lancamentosMetasFinalizadas = state.lancamentos_meta.filter(l => metasFinalizadasIds.includes(l.meta_id));
     
-    const tonyTotal = lancamentosMetasConcluidas.filter(l => l.responsavel === 'Tony').reduce((acc, l) => acc + parseFloat(l.valor), 0);
-    const lysTotal = lancamentosMetasConcluidas.filter(l => l.responsavel === 'Lys').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    const tonyTotal = lancamentosMetasFinalizadas.filter(l => l.responsavel === 'Tony').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    const lysTotal = lancamentosMetasFinalizadas.filter(l => l.responsavel === 'Lys').reduce((acc, l) => acc + parseFloat(l.valor), 0);
     const totalConcluidoArrecadado = tonyTotal + lysTotal;
 
     let tonyPerc = 0;
