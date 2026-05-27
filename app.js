@@ -219,6 +219,32 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
+// Navegação de Sub-Abas de Relatório (Sem afetar outras telas)
+document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const targetId = btn.getAttribute('data-subtarget');
+        document.querySelectorAll('.sub-rel-panel').forEach(p => {
+            p.style.display = 'none';
+            p.classList.remove('active');
+        });
+        
+        const targetPanel = document.getElementById(targetId);
+        if (targetPanel) {
+            targetPanel.style.display = 'block';
+            targetPanel.classList.add('active');
+        }
+
+        if (targetId === 'rel-metas-panel') {
+            renderRelatoriosMetas();
+        } else {
+            updateRelatorios(); // Relatório de Vendas (original)
+        }
+    });
+});
+
 // --- TEMA ---
 const themeToggle = document.getElementById('theme-toggle');
 function applyTheme(themeName) {
@@ -1666,6 +1692,91 @@ document.getElementById('btn-encerrar-meta').addEventListener('click', async () 
 
     renderMeta();
 });
+
+function renderRelatoriosMetas() {
+    // 1. Total Poupado: soma de TODOS os lançamentos em lancamentos_meta de qualquer meta
+    const totalPoupado = state.lancamentos_meta.reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    document.getElementById('meta-rel-total-poupado').textContent = formatCurrency(totalPoupado);
+
+    // 2. Taxa de Sucesso: metas com status 'concluída' versus 'pendente'
+    const metasFinalizadas = state.metas.filter(m => m.status === 'concluída' || m.status === 'pendente');
+    const metasConcluidas = metasFinalizadas.filter(m => m.status === 'concluída');
+    
+    let taxaSucesso = 0;
+    if (metasFinalizadas.length > 0) {
+        taxaSucesso = (metasConcluidas.length / metasFinalizadas.length) * 100;
+    }
+    
+    document.getElementById('meta-rel-taxa-sucesso').textContent = `${taxaSucesso.toFixed(0)}%`;
+    document.getElementById('meta-rel-ciclos-total').textContent = `${metasConcluidas.length} concluídas de ${metasFinalizadas.length} ciclos`;
+
+    // 3. Placar de Contribuição Global: Somente em metas concluídas
+    const metasConcluidasIds = metasConcluidas.map(m => m.id);
+    const lancamentosMetasConcluidas = state.lancamentos_meta.filter(l => metasConcluidasIds.includes(l.meta_id));
+    
+    const tonyTotal = lancamentosMetasConcluidas.filter(l => l.responsavel === 'Tony').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    const lysTotal = lancamentosMetasConcluidas.filter(l => l.responsavel === 'Lys').reduce((acc, l) => acc + parseFloat(l.valor), 0);
+    const totalConcluidoArrecadado = tonyTotal + lysTotal;
+
+    let tonyPerc = 0;
+    let lysPerc = 0;
+    if (totalConcluidoArrecadado > 0) {
+        tonyPerc = (tonyTotal / totalConcluidoArrecadado) * 100;
+        lysPerc = (lysTotal / totalConcluidoArrecadado) * 100;
+    }
+
+    document.getElementById('meta-rel-tony-perc').textContent = `${tonyPerc.toFixed(0)}% (${formatCurrency(tonyTotal)})`;
+    document.getElementById('meta-rel-lys-perc').textContent = `${lysPerc.toFixed(0)}% (${formatCurrency(lysTotal)})`;
+
+    // Renderiza Gráfico Doughnut de Contribuição Global
+    const ctx = document.getElementById('chart-rel-metas-contrib')?.getContext('2d');
+    if (ctx && window.Chart) {
+        if (charts.meta_rel_contrib) charts.meta_rel_contrib.destroy();
+        
+        let dataTony = tonyTotal;
+        let dataLys = lysTotal;
+        
+        if (dataTony === 0 && dataLys === 0) {
+            dataTony = 0.1;
+            dataLys = 0.1;
+        }
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+        charts.meta_rel_contrib = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Tony', 'Lys'],
+                datasets: [{
+                    data: [dataTony, dataLys],
+                    backgroundColor: [
+                        tonyTotal === 0 && lysTotal === 0 ? '#cccccc' : '#3b82f6', 
+                        tonyTotal === 0 && lysTotal === 0 ? '#dddddd' : '#ec4899'
+                    ],
+                    borderWidth: isDark ? 2 : 3,
+                    borderColor: isDark ? '#2d1a0d' : '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (tonyTotal === 0 && lysTotal === 0) return ' Sem arrecadação';
+                                const percent = ((context.raw / totalConcluidoArrecadado) * 100).toFixed(1);
+                                return ` ${context.label}: ${percent}% (${formatCurrency(context.raw)})`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
 
 // Expõe funções para o escopo global (necessário para o onclick no HTML)
 window.deletarProduto = deletarProduto;

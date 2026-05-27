@@ -327,6 +327,11 @@ p { font-size: 0.95rem; }
     color: white;
 }
 
+.sub-tab-btn.active {
+    background: var(--primary-color) !important;
+    color: white !important;
+}
+
 .form-panel { display: none; }
 .form-panel.active { display: block; }
 
