@@ -1165,6 +1165,35 @@ function calcularDataVencimento(dataInicioStr, diasEsforco) {
 // Rotina de verificação e encerramento automático das metas vencidas
 async function verificarVencimentoMetas() {
     const hojeStr = getHojeStr();
+
+    // REGRA COMPLEMENTAR: Se existe uma meta de repetição no histórico (desativada) sem sucessor ativo/futuro, cria o sucessor
+    const metasRecorrentesInativas = state.metas.filter(m => !m.ativa && m.repetir_mensalmente);
+    for (const metaOld of metasRecorrentesInativas) {
+        // Verifica se já existe uma sucessora (mesmo nome e data de início futura/maior)
+        const dataInicioOriginal = new Date(metaOld.data_inicio + "T00:00:00");
+        const novaDataInicio = new Date(dataInicioOriginal);
+        novaDataInicio.setMonth(novaDataInicio.getMonth() + 1);
+        const novaDataInicioStr = novaDataInicio.toISOString().split('T')[0];
+
+        const jaExiste = state.metas.some(m => m.nome === metaOld.nome && m.data_inicio === novaDataInicioStr);
+        if (!jaExiste) {
+            console.log(`Gerando duplicação complementar para: ${metaOld.nome} com data ${novaDataInicioStr}`);
+            const { data: novaMeta, error: errInsert } = await supabaseClient.from('metas_financeiras').insert([{
+                nome: metaOld.nome,
+                valor_total: metaOld.valor_total,
+                dias_esforco: metaOld.dias_esforco,
+                data_inicio: novaDataInicioStr,
+                repetir_mensalmente: true,
+                ativa: true,
+                status: 'aberta'
+            }]).select();
+
+            if (!errInsert && novaMeta) {
+                state.metas.push(novaMeta[0]);
+            }
+        }
+    }
+
     
     // Filtra estritamente metas abertas que já venceram
     const metasVencidas = state.metas.filter(m => {
@@ -1222,7 +1251,8 @@ async function verificarVencimentoMetas() {
 function renderMeta() {
     // Roda a verificação de vencimento antes de renderizar
     verificarVencimentoMetas().then(() => {
-        const metasAtivas = state.metas.filter(m => m.ativa && m.status === 'aberta');
+        // Metas ativas ou a iniciar possuem ativa = true e status = 'aberta'
+        const metasAtivas = state.metas.filter(m => m.ativa === true && m.status === 'aberta');
         
         // Define qual meta está selecionada
         if (!state.metaSelecionadaId && metasAtivas.length > 0) {
@@ -1266,7 +1296,7 @@ function renderMeta() {
         const panelActive = document.getElementById('meta-active-panel');
 
         // Se nenhuma meta estiver selecionada ou ativa, mostra setup de nova meta
-        const metaSelecionada = state.metas.find(m => m.id === state.metaSelecionadaId && m.ativa && m.status === 'aberta');
+        const metaSelecionada = state.metas.find(m => m.id === state.metaSelecionadaId && m.ativa === true && m.status === 'aberta');
 
         if (!metaSelecionada) {
             panelSetup.style.display = 'block';
