@@ -1153,7 +1153,6 @@ function calcularDataVencimento(dataInicioStr, diasEsforco) {
 // Rotina de verificação e encerramento automático das metas vencidas
 async function verificarVencimentoMetas() {
     const hojeStr = getHojeStr();
-    const hoje = new Date(hojeStr + "T00:00:00");
     
     // Filtra metas abertas que já venceram
     const metasVencidas = state.metas.filter(m => {
@@ -1186,7 +1185,7 @@ async function verificarVencimentoMetas() {
                     nome: meta.nome,
                     valor_total: meta.valor_total,
                     dias_esforco: meta.dias_esforco,
-                    data_inicio: dataVenc,
+                    data_inicio: dataVenc, // A nova meta inicia exatamente no dia do vencimento da anterior
                     repetir_mensalmente: true,
                     ativa: true,
                     status: 'aberta'
@@ -1274,9 +1273,17 @@ function renderMeta() {
         const totalTime = dataVenc.getTime() - inicioDate.getTime();
         const totalDias = Math.round(totalTime / (1000 * 3600 * 24));
 
-        const timeDiff = dataVenc.getTime() - hoje.getTime();
-        let diasRestantes = Math.ceil(timeDiff / (1000 * 3600 * 24));
-        if (diasRestantes < 0) diasRestantes = 0;
+        const metaIniciada = hoje >= inicioDate;
+
+        let diasRestantes;
+        if (!metaIniciada) {
+            // Se a meta ainda não iniciou, restam todos os dias dela
+            diasRestantes = parseInt(metaSelecionada.dias_esforco);
+        } else {
+            const timeDiff = dataVenc.getTime() - hoje.getTime();
+            diasRestantes = Math.ceil(timeDiff / (1000 * 3600 * 24));
+            if (diasRestantes < 0) diasRestantes = 0;
+        }
 
         let metaDiariaGlobal = 0;
         if (valorRestante > 0 && diasRestantes > 0) {
@@ -1295,12 +1302,12 @@ function renderMeta() {
         // Formata datas para o cabeçalho
         const [anoI, mesI, diaI] = metaSelecionada.data_inicio.split('-');
         const [anoV, mesV, diaV] = dataVencStr.split('-');
-
-        const metaIniciada = hoje >= inicioDate;
         
         let statusBadgeHTML = '';
         if (!metaIniciada) {
-            statusBadgeHTML = `<span style="background: #eab308; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; vertical-align: middle; margin-left: 8px;">Não Iniciada</span>`;
+            statusBadgeHTML = `<span style="background: #eab308; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; vertical-align: middle; margin-left: 8px;">A Iniciar</span>`;
+        } else {
+            statusBadgeHTML = `<span style="background: var(--success); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; vertical-align: middle; margin-left: 8px;">Aberta</span>`;
         }
 
         // Atualiza DOM do painel ativo
