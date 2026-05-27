@@ -171,6 +171,8 @@ async function loadState() {
 
         showConnectionBanner('online', 'Dados atualizados!');
 
+        // Executa a verificação automática de vencimentos ao carregar o estado
+        await verificarVencimentoMetas();
     } catch (err) {
         console.error("Erro ao carregar banco:", err);
         showConnectionBanner('offline', 'Sem conexão com o servidor. Dados podem estar desatualizados.');
@@ -181,6 +183,7 @@ async function loadState() {
         renderHistorico();
         renderEstoque();
         renderComprasEstoque();
+        renderMeta(); // Renderiza dados de meta no carregamento inicial
     }
 }
 
