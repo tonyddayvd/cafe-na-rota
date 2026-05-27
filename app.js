@@ -1233,29 +1233,33 @@ function renderMeta() {
         const listSidebar = document.getElementById('lista-metas-sidebar');
         if (listSidebar) {
             listSidebar.innerHTML = '';
-            metasAtivas.forEach(m => {
-                const dataVenc = calcularDataVencimento(m.data_inicio, m.dias_esforco);
-                const [anoI, mesI, diaI] = m.data_inicio.split('-');
-                const [anoV, mesV, diaV] = dataVenc.split('-');
-                
-                const li = document.createElement('li');
-                li.className = `meta-sidebar-item ${state.metaSelecionadaId === m.id ? 'active' : ''}`;
-                li.style.display = 'flex';
-                li.style.flexDirection = 'column';
-                li.innerHTML = `
-                    <span>${m.nome}</span>
-                    <small style="font-size: 0.7rem; opacity: 0.8; font-weight: normal; margin-top: 2px;">
-                        ${diaI}/${mesI} a ${diaV}/${mesV}
-                    </small>
-                `;
-                li.addEventListener('click', () => {
-                    state.metaSelecionadaId = m.id;
-                    document.getElementById('meta-setup-panel').style.display = 'none';
-                    document.getElementById('meta-active-panel').style.display = 'block';
-                    renderMeta();
+            if (metasAtivas.length === 0) {
+                listSidebar.innerHTML = '<li style="font-size:0.8rem; color:var(--text-muted); padding:10px; text-align:center;">Nenhuma meta aberta</li>';
+            } else {
+                metasAtivas.forEach(m => {
+                    const dataVenc = calcularDataVencimento(m.data_inicio, m.dias_esforco);
+                    const [anoI, mesI, diaI] = m.data_inicio.split('-');
+                    const [anoV, mesV, diaV] = dataVenc.split('-');
+                    
+                    const li = document.createElement('li');
+                    li.className = `meta-sidebar-item ${state.metaSelecionadaId === m.id ? 'active' : ''}`;
+                    li.style.display = 'flex';
+                    li.style.flexDirection = 'column';
+                    li.innerHTML = `
+                        <span>${m.nome}</span>
+                        <small style="font-size: 0.7rem; opacity: 0.8; font-weight: normal; margin-top: 2px;">
+                            ${diaI}/${mesI} a ${diaV}/${mesV}
+                        </small>
+                    `;
+                    li.addEventListener('click', () => {
+                        state.metaSelecionadaId = m.id;
+                        document.getElementById('meta-setup-panel').style.display = 'none';
+                        document.getElementById('meta-active-panel').style.display = 'block';
+                        renderMeta();
+                    });
+                    listSidebar.appendChild(li);
                 });
-                listSidebar.appendChild(li);
-            });
+            }
         }
 
         const panelSetup = document.getElementById('meta-setup-panel');
