@@ -1578,9 +1578,20 @@ document.getElementById('form-criar-meta').addEventListener('submit', async (e) 
     e.preventDefault();
     const nome = document.getElementById('nova-meta-nome').value;
     const valor = parseFloat(document.getElementById('nova-meta-valor').value);
-    const dias = parseInt(document.getElementById('nova-meta-dias').value);
     const inicio = document.getElementById('nova-meta-inicio').value;
+    const fim = document.getElementById('nova-meta-fim').value;
     const repetir = document.getElementById('nova-meta-repetir').checked;
+
+    const dataInicio = new Date(inicio + "T00:00:00");
+    const dataFim = new Date(fim + "T00:00:00");
+
+    if (dataFim <= dataInicio) {
+        return alert("A data de término deve ser após a data de início!");
+    }
+
+    // Calcula a diferença em dias
+    const timeDiff = dataFim.getTime() - dataInicio.getTime();
+    const dias = Math.round(timeDiff / (1000 * 3600 * 24));
 
     const btn = e.target.querySelector('button');
     btn.textContent = 'Iniciando...'; btn.disabled = true;
