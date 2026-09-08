@@ -64,8 +64,12 @@ CREATE TABLE compras (
     data_referencia DATE DEFAULT CURRENT_DATE,
     produto_id INTEGER REFERENCES produtos(id) ON DELETE CASCADE,
     quantidade NUMERIC(15,3) NOT NULL,
-    valor_total NUMERIC(15,2) NOT NULL
+    valor_total NUMERIC(15,2) NOT NULL,
+    tipo_entrada TEXT DEFAULT 'a_vista' CHECK (tipo_entrada IN ('a_vista', 'cartao', 'doacao'))
 );
+
+-- Caso a tabela compras já exista no seu banco Supabase, execute este comando no SQL Editor:
+-- ALTER TABLE compras ADD COLUMN IF NOT EXISTS tipo_entrada TEXT DEFAULT 'a_vista' CHECK (tipo_entrada IN ('a_vista', 'cartao', 'doacao'));
 
 -- Tabela: Configurações Gerais
 CREATE TABLE configuracoes (

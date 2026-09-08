@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260528_1208">
+    <link rel="stylesheet" href="styles.css?v=20260908_1258">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -469,6 +469,14 @@
             <h3>Adicionar ao Estoque Total</h3>
             <p id="compra-estoque-nome-produto" class="mb-1 text-sm"></p>
             <div class="input-group">
+                <label>Tipo de Entrada</label>
+                <select id="compra-estoque-tipo">
+                    <option value="a_vista" selected>Compra à Vista (Gera saída imediata no Caixa)</option>
+                    <option value="cartao">Compra no Cartão (Não gera saída de Caixa)</option>
+                    <option value="doacao">Doação / Brinde (Custo R$ 0,00 e sem saída)</option>
+                </select>
+            </div>
+            <div class="input-group">
                 <label>Data da Compra (Opcional)</label>
                 <input type="date" id="compra-estoque-data">
             </div>
@@ -476,10 +484,10 @@
                 <label>Quantidade Comprada (+)</label>
                 <input type="number" id="compra-estoque-qtd" placeholder="Ex: 10" min="1">
             </div>
-            <div class="input-group">
-                <label>Valor Pago Total (R$)</label>
+            <div class="input-group" id="group-compra-estoque-valor">
+                <label id="label-compra-estoque-valor">Valor Pago Total (R$)</label>
                 <input type="number" id="compra-estoque-valor" step="0.01" min="0" placeholder="Ex: 15.50">
-                <p class="text-sm var-text-muted mt-1">*Esse valor será deduzido como uma Despesa automaticamente.</p>
+                <p class="text-sm var-text-muted mt-1" id="help-compra-estoque-valor">*Esse valor será deduzido como uma Despesa automaticamente.</p>
             </div>
             <input type="hidden" id="compra-estoque-id">
             <div class="modal-actions mt-2">
@@ -523,7 +531,7 @@
         }
     </script>
     
-    <!-- Forçando o navegador a não usar Cache (Cache Busting V23) -->
-    <script src="app.js?v=20260528_1208"></script>
+    <!-- Forçando o navegador a não usar Cache (Cache Busting V24) -->
+    <script src="app.js?v=20260908_1258"></script>
 </body>
 </html>

@@ -457,6 +457,11 @@ function renderEstoque() {
             document.getElementById('compra-estoque-id').value = id;
             document.getElementById('compra-estoque-qtd').value = '';
             document.getElementById('compra-estoque-valor').value = '';
+            const tipoSelect = document.getElementById('compra-estoque-tipo');
+            if (tipoSelect) {
+                tipoSelect.value = 'a_vista';
+                tipoSelect.dispatchEvent(new Event('change'));
+            }
             // Atualiza a label correta da Quantidade, não a da Data!
             document.getElementById('compra-estoque-qtd').parentElement.querySelector('label').textContent = `Quantidade Comprada (+ em ${unid})`;
             document.getElementById('modal-compra-estoque').classList.remove('hidden');
@@ -550,15 +555,58 @@ async function deletarProduto(id, nome) {
 
 // Modal Compra de Estoque
 const modalCompra = document.getElementById('modal-compra-estoque');
+const selectTipoEntrada = document.getElementById('compra-estoque-tipo');
+
+if (selectTipoEntrada) {
+    selectTipoEntrada.addEventListener('change', () => {
+        const tipo = selectTipoEntrada.value;
+        const groupValor = document.getElementById('group-compra-estoque-valor');
+        const inputValor = document.getElementById('compra-estoque-valor');
+        const helpValor = document.getElementById('help-compra-estoque-valor');
+        const labelValor = document.getElementById('label-compra-estoque-valor');
+
+        if (tipo === 'doacao') {
+            if (inputValor) {
+                inputValor.value = '0';
+                inputValor.disabled = true;
+            }
+            if (helpValor) helpValor.textContent = '*Doação/Brinde: Custo definido como R$ 0,00 e nenhuma saída financeira gerada no Caixa.';
+            if (labelValor) labelValor.textContent = 'Custo Total (R$)';
+        } else if (tipo === 'cartao') {
+            if (inputValor) {
+                inputValor.disabled = false;
+                if (inputValor.value === '0') inputValor.value = '';
+            }
+            if (helpValor) helpValor.textContent = '*Compra no Cartão: Registra o custo do produto no estoque, mas NÃO deduz valor do Caixa agora.';
+            if (labelValor) labelValor.textContent = 'Valor da Compra no Cartão (R$)';
+        } else { // a_vista
+            if (inputValor) {
+                inputValor.disabled = false;
+                if (inputValor.value === '0') inputValor.value = '';
+            }
+            if (helpValor) helpValor.textContent = '*Esse valor será deduzido como uma Despesa automaticamente no Caixa.';
+            if (labelValor) labelValor.textContent = 'Valor Pago Total (R$)';
+        }
+    });
+}
+
 document.getElementById('btn-cancelar-compra').addEventListener('click', () => modalCompra.classList.add('hidden'));
 document.getElementById('btn-salvar-compra').addEventListener('click', async () => {
     const id = parseInt(document.getElementById('compra-estoque-id').value);
     const qtdAdd = parseFloat(document.getElementById('compra-estoque-qtd').value);
-    const valorPago = parseFloat(document.getElementById('compra-estoque-valor').value);
+    const tipoEntrada = document.getElementById('compra-estoque-tipo')?.value || 'a_vista';
+    let valorPago = parseFloat(document.getElementById('compra-estoque-valor').value);
     const dateInput = document.getElementById('compra-estoque-data').value;
     const dataRef = dateInput ? dateInput : getHojeStr();
     
     if (isNaN(qtdAdd) || qtdAdd <= 0) return alert('Insira uma quantidade válida de estoque.');
+
+    // Se for doação, o custo é forçado para 0
+    if (tipoEntrada === 'doacao') {
+        valorPago = 0;
+    } else {
+        if (isNaN(valorPago) || valorPago < 0) valorPago = 0;
+    }
     
     const btn = document.getElementById('btn-salvar-compra');
     btn.textContent = 'Aguarde...'; btn.disabled = true;
@@ -578,19 +626,19 @@ document.getElementById('btn-salvar-compra').addEventListener('click', async () 
 
     state.estoque_total[id] = novoTotal;
     
-    // 2. Registra Custo automaticamente (se houver valor pago)
-    if (!isNaN(valorPago) && valorPago > 0) {
-        // Registra em Compras (para histórico de quantidades por período)
-        const novaCompra = {
-            data_referencia: dataRef,
-            produto_id: id,
-            quantidade: qtdAdd,
-            valor_total: valorPago
-        };
-        const { data: dComp, error: eComp } = await supabaseClient.from('compras').insert([novaCompra]).select();
-        if(!eComp && dComp) state.compras.push(dComp[0]);
+    // 2. Registra Custo em Compras (histórico de quantidades e custos por período)
+    const novaCompra = {
+        data_referencia: dataRef,
+        produto_id: id,
+        quantidade: qtdAdd,
+        valor_total: valorPago,
+        tipo_entrada: tipoEntrada
+    };
+    const { data: dComp, error: eComp } = await supabaseClient.from('compras').insert([novaCompra]).select();
+    if(!eComp && dComp) state.compras.push(dComp[0]);
 
-        // Registra em Saídas (Despesa de Caixa) com referência à compra
+    // 3. Registra em Saídas (Despesa de Caixa) APENAS se for 'Compra à Vista' e com valor > 0
+    if (tipoEntrada === 'a_vista' && valorPago > 0) {
         const produtoObj = state.produtos.find(p => p.id === id);
         const nomeProd = produtoObj ? produtoObj.nome : 'Produto';
         const unProd = produtoObj ? produtoObj.unidade_medida : '';
@@ -598,8 +646,8 @@ document.getElementById('btn-salvar-compra').addEventListener('click', async () 
         const novaSaida = {
             data_referencia: dataRef,
             valor: valorPago,
-            justificativa: `Compra Estoque: ${nomeProd} (+${qtdAdd}${unProd})`,
-            compra_id: dComp ? dComp[0].id : null // Referência opcional se quisermos deletar em cascata no futuro
+            justificativa: `Compra Estoque (À Vista): ${nomeProd} (+${qtdAdd}${unProd})`,
+            compra_id: dComp ? dComp[0].id : null
         };
         
         const { data: dSaida, error: eSaida } = await supabaseClient.from('saidas').insert([novaSaida]).select();
@@ -614,6 +662,9 @@ document.getElementById('btn-salvar-compra').addEventListener('click', async () 
     document.getElementById('compra-estoque-qtd').value = '';
     document.getElementById('compra-estoque-valor').value = '';
     document.getElementById('compra-estoque-data').value = '';
+    if (document.getElementById('compra-estoque-tipo')) {
+        document.getElementById('compra-estoque-tipo').value = 'a_vista';
+    }
     
     renderEstoque();
     updateDashboard();
@@ -738,6 +789,17 @@ async function deletarRegistro(tabela, id) {
         if (tabela === 'entradas') state.entradas = state.entradas.filter(e => e.id !== id);
         if (tabela === 'saidas') state.saidas = state.saidas.filter(s => s.id !== id);
         if (tabela === 'metas_financeiras') {
+            const metaParaExcluir = state.metas.find(m => m.id === id);
+            // 1. Se a meta for recorrente, desativa explicitamente a recorrência no banco para não ser recriada
+            if (metaParaExcluir && metaParaExcluir.repetir_mensalmente) {
+                await supabaseClient.from('metas_financeiras').update({ repetir_mensalmente: false }).eq('id', id);
+                metaParaExcluir.repetir_mensalmente = false;
+            }
+
+            // 2. Exclui definitivamente a meta
+            const { error: errMeta } = await supabaseClient.from('metas_financeiras').delete().eq('id', id);
+            if (errMeta) throw errMeta;
+
             state.metas = state.metas.filter(m => m.id !== id);
             if (state.metaSelecionadaId === id) {
                 state.metaSelecionadaId = null;
@@ -760,6 +822,23 @@ async function deletarRegistro(tabela, id) {
                 state.estoque_total[h.produto_id] = novoTotal;
             }
             state.historico_estoque = state.historico_estoque.filter(x => x.id !== id);
+        }
+        if (tabela === 'compras') {
+            const comp = state.compras.find(c => c.id === id);
+            if (comp) {
+                // Subtrai a quantidade que foi comprada do estoque total
+                const novoTotal = Math.max(0, (state.estoque_total[comp.produto_id] || 0) - parseFloat(comp.quantidade));
+                await supabaseClient.from('estoque_total').upsert({ produto_id: comp.produto_id, quantidade_total: novoTotal });
+                state.estoque_total[comp.produto_id] = novoTotal;
+
+                // Se gerou saída financeira no Caixa, remove a saída também
+                const saidaVinculada = state.saidas.find(s => s.compra_id === id);
+                if (saidaVinculada) {
+                    await supabaseClient.from('saidas').delete().eq('id', saidaVinculada.id);
+                    state.saidas = state.saidas.filter(s => s.id !== saidaVinculada.id);
+                }
+            }
+            state.compras = state.compras.filter(c => c.id !== id);
         }
 
         alert('Registro excluído com sucesso!');
@@ -1141,15 +1220,24 @@ function renderComprasEstoque() {
         const un = prod ? prod.unidade_medida : '';
         const [ano, mes, dia] = c.data_referencia.split('-');
 
+        let badgeTipo = '';
+        if (c.tipo_entrada === 'cartao') {
+            badgeTipo = ' <span style="background: #eab308; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7rem; font-weight: 600;">Cartão</span>';
+        } else if (c.tipo_entrada === 'doacao') {
+            badgeTipo = ' <span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7rem; font-weight: 600;">Doação / Brinde</span>';
+        } else {
+            badgeTipo = ' <span style="background: #3b82f6; color: white; padding: 2px 6px; border-radius: 8px; font-size: 0.7rem; font-weight: 600;">À Vista</span>';
+        }
+
         const li = document.createElement('li');
         li.className = 'historico-item';
         li.innerHTML = `
             <div style="flex:1">
-                <p><strong>${dia}/${mes}</strong> - ${nome}</p>
-                <small>${c.quantidade}${un} comprados</small>
+                <p><strong>${dia}/${mes}</strong> - ${nome}${badgeTipo}</p>
+                <small>${c.quantidade}${un} ${c.tipo_entrada === 'doacao' ? 'recebidos' : 'comprados'}</small>
             </div>
             <strong>${formatCurrency(c.valor_total)}</strong>
-            <button class="btn-delete" onclick="deletarRegistro('compras', ${c.id})" title="Excluir Compra">
+            <button class="btn-delete" onclick="deletarRegistro('compras', ${c.id})" title="Excluir Registro">
                 <ion-icon name="trash-outline"></ion-icon>
             </button>
         `;
