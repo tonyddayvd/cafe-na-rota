@@ -782,12 +782,6 @@ async function deletarRegistro(tabela, id) {
             }
         }
         
-        // Deleta o registro principal
-        const { error } = await supabaseClient.from(tabela).delete().eq('id', id);
-        if(error) throw error;
-
-        if (tabela === 'entradas') state.entradas = state.entradas.filter(e => e.id !== id);
-        if (tabela === 'saidas') state.saidas = state.saidas.filter(s => s.id !== id);
         if (tabela === 'metas_financeiras') {
             const metaParaExcluir = state.metas.find(m => m.id === id);
             // 1. Se a meta for recorrente, desativa explicitamente a recorrência no banco para não ser recriada
@@ -796,7 +790,11 @@ async function deletarRegistro(tabela, id) {
                 metaParaExcluir.repetir_mensalmente = false;
             }
 
-            // 2. Exclui definitivamente a meta
+            // 2. Remove lançamentos vinculados a esta meta para garantir integridade e evitar falhas de FK
+            await supabaseClient.from('lancamentos_meta').delete().eq('meta_id', id);
+            state.lancamentos_meta = state.lancamentos_meta.filter(l => l.meta_id !== id);
+
+            // 3. Exclui definitivamente a meta
             const { error: errMeta } = await supabaseClient.from('metas_financeiras').delete().eq('id', id);
             if (errMeta) throw errMeta;
 
@@ -808,6 +806,13 @@ async function deletarRegistro(tabela, id) {
             alert('Meta excluída com sucesso!');
             return;
         }
+
+        // Deleta o registro principal para outras tabelas
+        const { error } = await supabaseClient.from(tabela).delete().eq('id', id);
+        if(error) throw error;
+
+        if (tabela === 'entradas') state.entradas = state.entradas.filter(e => e.id !== id);
+        if (tabela === 'saidas') state.saidas = state.saidas.filter(s => s.id !== id);
         if (tabela === 'lancamentos_meta') {
             state.lancamentos_meta = state.lancamentos_meta.filter(l => l.id !== id);
             renderMeta();
@@ -1281,36 +1286,6 @@ function calcularDataVencimento(dataInicioStr, diasEsforco) {
 async function verificarVencimentoMetas() {
     const hojeStr = getHojeStr();
 
-    // REGRA COMPLEMENTAR: Se existe uma meta de repetição no histórico (desativada) sem sucessor ativo/futuro, cria o sucessor
-    const metasRecorrentesInativas = state.metas.filter(m => !m.ativa && m.repetir_mensalmente);
-    for (const metaOld of metasRecorrentesInativas) {
-        // Verifica se já existe uma sucessora (mesmo nome e data de início futura/maior)
-        const dataInicioOriginal = new Date(metaOld.data_inicio + "T00:00:00");
-        const novaDataInicio = new Date(dataInicioOriginal);
-        novaDataInicio.setMonth(novaDataInicio.getMonth() + 1);
-        const novaDataInicioStr = novaDataInicio.toISOString().split('T')[0];
-
-        const jaExiste = state.metas.some(m => m.nome === metaOld.nome && m.data_inicio === novaDataInicioStr);
-        if (!jaExiste) {
-            console.log(`Gerando duplicação complementar para: ${metaOld.nome} com data ${novaDataInicioStr}`);
-            const { data: novaMeta, error: errInsert } = await supabaseClient.from('metas_financeiras').insert([{
-                nome: metaOld.nome,
-                valor_total: metaOld.valor_total,
-                dias_esforco: metaOld.dias_esforco,
-                data_inicio: novaDataInicioStr,
-                repetir_mensalmente: true,
-                ativa: true,
-                status: 'aberta'
-            }]).select();
-
-            if (!errInsert && novaMeta) {
-                state.metas.push(novaMeta[0]);
-                console.log("Inserida nova meta de repetição complementar no state:", novaMeta[0]);
-            }
-        }
-    }
-
-    
     // Filtra estritamente metas abertas que já venceram
     const metasVencidas = state.metas.filter(m => {
         return m.ativa === true && m.status === 'aberta' && hojeStr > calcularDataVencimento(m.data_inicio, m.dias_esforco);
