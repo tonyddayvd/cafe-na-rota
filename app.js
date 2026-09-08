@@ -289,10 +289,22 @@ document.getElementById('form-entrada').addEventListener('submit', async (e) => 
     alert('Entrada lançada com sucesso no banco!');
 });
 
+// Função auxiliar para verificar se uma saída é retirada pessoal / Pró-labore
+function isProLabore(s) {
+    if (!s) return false;
+    if (s.categoria === 'pro_labore') return true;
+    const just = (s.justificativa || '').toLowerCase();
+    return just.includes('[pró-labore]') || just.includes('[pro-labore]') || 
+           just.includes('pró-labore') || just.includes('pro-labore') || 
+           just.includes('pró labore') || just.includes('pro labore') ||
+           just.includes('retirada pessoal');
+}
+
 document.getElementById('form-saida').addEventListener('submit', async (e) => {
     e.preventDefault();
     const valor = parseFloat(document.getElementById('saida-valor').value);
     const justificativa = document.getElementById('saida-justificativa').value.trim();
+    const categoria = document.getElementById('saida-categoria')?.value || 'operacional';
     const dateInput = document.getElementById('saida-data').value;
     const dataRef = dateInput ? dateInput : getHojeStr();
     
@@ -300,17 +312,32 @@ document.getElementById('form-saida').addEventListener('submit', async (e) => {
     btn.textContent = 'Aguarde...';
     btn.disabled = true;
 
+    // Se for pró-labore e a justificativa ainda não indicar a tag, adiciona para clareza
+    const justificativaFormatada = (categoria === 'pro_labore' && !justificativa.toLowerCase().includes('pró-labore') && !justificativa.toLowerCase().includes('pro-labore'))
+        ? `[Pró-labore] ${justificativa}`
+        : justificativa;
+
     const novaSaida = {
         data_referencia: dataRef,
         valor: valor,
-        justificativa: justificativa
+        justificativa: justificativaFormatada,
+        categoria: categoria
     };
 
-    const { data, error } = await supabaseClient.from('saidas').insert([novaSaida]).select();
+    let { data, error } = await supabaseClient.from('saidas').insert([novaSaida]).select();
+    
+    // Fallback caso a tabela saidas no Supabase ainda não tenha a coluna categoria criada
+    if (error && error.message && error.message.toLowerCase().includes('categoria')) {
+        delete novaSaida.categoria;
+        const resFallback = await supabaseClient.from('saidas').insert([novaSaida]).select();
+        data = resFallback.data;
+        error = resFallback.error;
+    }
+
     btn.textContent = 'Registrar Saída';
     btn.disabled = false;
 
-    if (error) return alert('Erro ao salvar no banco!');
+    if (error) return alert('Erro ao salvar no banco: ' + (error.message || ''));
     
     state.saidas.push(data[0]);
     document.getElementById('form-saida').reset();
@@ -330,7 +357,15 @@ function renderTransactions() {
     // Mostra as últimas 30 transações (Entradas e Saídas) ordenadas cronologicamente
     const transacoes = [
         ...state.entradas.map(e => ({ id: e.id, tipo: 'entrada', valor: parseFloat(e.valor_total), desc: 'Apurado Diário', data: e.data_referencia, timestamp: e.data_operacao })),
-        ...state.saidas.map(s => ({ id: s.id, tipo: 'saida', valor: parseFloat(s.valor), desc: s.justificativa, data: s.data_referencia, timestamp: s.data_operacao }))
+        ...state.saidas.map(s => ({
+            id: s.id,
+            tipo: 'saida',
+            isProLabore: isProLabore(s),
+            valor: parseFloat(s.valor),
+            desc: s.justificativa,
+            data: s.data_referencia,
+            timestamp: s.data_operacao
+        }))
     ].sort((a,b) => {
         const timeA = new Date(a.timestamp || a.data).getTime();
         const timeB = new Date(b.timestamp || b.data).getTime();
@@ -342,12 +377,18 @@ function renderTransactions() {
     transacoes.forEach(t => {
         const li = document.createElement('li');
         li.className = 'transaction-item';
+        
+        let rotuloTipo = t.tipo === 'entrada' ? 'Entrada' : 'Saída Operacional';
+        if (t.isProLabore) {
+            rotuloTipo = '<span style="color:#8b5cf6; font-weight:600;">Retirada Pessoal (Pró-labore)</span>';
+        }
+
         li.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px; width:100%">
-                <ion-icon name="${t.tipo === 'entrada' ? 'arrow-up-circle' : 'arrow-down-circle'}" class="${t.tipo}"></ion-icon>
+                <ion-icon name="${t.tipo === 'entrada' ? 'arrow-up-circle' : (t.isProLabore ? 'person-circle-outline' : 'arrow-down-circle')}" class="${t.tipo}"></ion-icon>
                 <div style="flex:1">
                     <p>${t.desc}</p>
-                    <small>${t.tipo === 'entrada' ? 'Entrada' : 'Saída'}</small>
+                    <small>${rotuloTipo}</small>
                 </div>
                 <strong class="${t.tipo}">${t.tipo === 'entrada' ? '+' : '-'}${formatCurrency(t.valor)}</strong>
                 <button class="btn-delete" onclick="deletarRegistro('${t.tipo === 'entrada' ? 'entradas' : 'saidas'}', ${t.id})" aria-label="Deletar">
@@ -861,8 +902,14 @@ function getEstatisticasDia(dataStr) {
     const entradasNoDia = state.entradas.filter(e => e.data_referencia === dataStr);
     const saidasNoDia = state.saidas.filter(s => s.data_referencia === dataStr);
     
+    // Separa saídas operacionais de retiradas pessoais (Pró-labore)
+    // Pró-labore não é custo de insumo/operação, então não entra em totalDespesas/lucroLiquido
+    const saidasOperacionais = saidasNoDia.filter(s => !isProLabore(s));
+    const retiradasProLabore = saidasNoDia.filter(s => isProLabore(s));
+
     const totalCaixaBruto = entradasNoDia.reduce((sum, e) => sum + parseFloat(e.valor_total), 0);
-    const totalDespesas = saidasNoDia.reduce((sum, s) => sum + parseFloat(s.valor), 0);
+    const totalDespesas = saidasOperacionais.reduce((sum, s) => sum + parseFloat(s.valor), 0);
+    const totalProLabore = retiradasProLabore.reduce((sum, s) => sum + parseFloat(s.valor), 0);
     const lucroLiquido = totalCaixaBruto - totalDespesas;
     
     // Calcula copos vendidos
@@ -877,13 +924,49 @@ function getEstatisticasDia(dataStr) {
     
     const ticketMedio = coposVendidos > 0 ? (totalCaixaBruto / coposVendidos) : 0;
     
-    return { totalCaixaBruto, totalDespesas, lucroLiquido, coposVendidos, ticketMedio };
+    return { totalCaixaBruto, totalDespesas, totalProLabore, lucroLiquido, coposVendidos, ticketMedio };
 }
 
 function getDataAnteriorStr(diasOffset) {
     const d = new Date();
     d.setDate(d.getDate() - diasOffset);
     return d.toISOString().split('T')[0];
+}
+
+function calcularCustoProdutos(periodo = 'mes') {
+    const hojeStr = getHojeStr();
+    const seteDiasAtras = getDataAnteriorStr(7);
+    const trintaDiasAtras = getDataAnteriorStr(30);
+
+    const comprasValidas = (state.compras || []).filter(c => {
+        const val = parseFloat(c.valor_total || 0);
+        return val > 0 && c.tipo_entrada !== 'doacao';
+    });
+
+    let comprasFiltradas = comprasValidas;
+    if (periodo === 'mes') {
+        comprasFiltradas = comprasValidas.filter(c => c.data_referencia >= trintaDiasAtras && c.data_referencia <= hojeStr);
+    } else if (periodo === 'semana') {
+        comprasFiltradas = comprasValidas.filter(c => c.data_referencia >= seteDiasAtras && c.data_referencia <= hojeStr);
+    } // Se for 'total', usa comprasValidas completo
+
+    let totalAVista = 0;
+    let totalCartao = 0;
+
+    comprasFiltradas.forEach(c => {
+        const val = parseFloat(c.valor_total || 0);
+        if (c.tipo_entrada === 'cartao') {
+            totalCartao += val;
+        } else {
+            totalAVista += val;
+        }
+    });
+
+    return {
+        totalCusto: totalAVista + totalCartao,
+        totalAVista,
+        totalCartao
+    };
 }
 
 function updateDashboard() {
@@ -914,8 +997,8 @@ function updateDashboard() {
         if (d >= trintaDiasAtras && d <= hojeStr) lucroMensal += statsDia.lucroLiquido;
     });
 
-    // Saldo Global
-    const saldoGlobal = state.entradas.reduce((s, e) => s + parseFloat(e.valor_total),0) - state.saidas.reduce((s, e) => s + parseFloat(e.valor), 0);
+    // Saldo Global (Dinheiro físico em caixa: Entradas - TODAS as Saídas, inclusive retiradas pessoais)
+    const saldoGlobal = state.entradas.reduce((s, e) => s + parseFloat(e.valor_total), 0) - state.saidas.reduce((s, e) => s + parseFloat(e.valor), 0);
     
     const elCaixaGlobal = document.getElementById('dash-caixa-global');
     const elLucroSem = document.getElementById('dash-lucro-sem');
@@ -929,6 +1012,18 @@ function updateDashboard() {
     elCaixaGlobal.className = saldoGlobal >= 0 ? 'val-pos' : 'val-neg';
     elLucroSem.className = lucroSemanal >= 0 ? 'val-pos' : 'val-neg';
     elLucroMes.className = lucroMensal >= 0 ? 'val-pos' : 'val-neg';
+
+    // Custo de Produtos (Compras de insumos e estoque à vista + cartão)
+    const elPeriodoCusto = document.getElementById('dash-custo-periodo');
+    const periodoCusto = elPeriodoCusto ? elPeriodoCusto.value : 'mes';
+    const statsCusto = calcularCustoProdutos(periodoCusto);
+
+    const elCustoProd = document.getElementById('dash-custo-produtos');
+    const elCustoDetalhe = document.getElementById('dash-custo-detalhe');
+    if (elCustoProd) elCustoProd.textContent = formatCurrency(statsCusto.totalCusto);
+    if (elCustoDetalhe) {
+        elCustoDetalhe.textContent = `À vista: ${formatCurrency(statsCusto.totalAVista)} | Cartão: ${formatCurrency(statsCusto.totalCartao)}`;
+    }
 
     // ROI e Break eaven
     const investimento = state.investimento_inicial;
@@ -1269,8 +1364,50 @@ async function deletarHistoricoConsumoPorDia(dataRef) {
     renderHistorico();
 }
 
+function setupInfoButtons() {
+    const modalInfo = document.getElementById('modal-info-card');
+    const modalTitle = document.getElementById('modal-info-title');
+    const modalText = document.getElementById('modal-info-text');
+    const btnFechar = document.getElementById('btn-fechar-modal-info');
+
+    document.querySelectorAll('.info-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const title = btn.getAttribute('data-info-title') || 'Informação';
+            const text = btn.getAttribute('data-info-text') || '';
+            if (modalTitle) modalTitle.textContent = title;
+            if (modalText) modalText.textContent = text;
+            if (modalInfo) modalInfo.classList.remove('hidden');
+        });
+    });
+
+    if (btnFechar && modalInfo) {
+        btnFechar.addEventListener('click', () => {
+            modalInfo.classList.add('hidden');
+        });
+        modalInfo.addEventListener('click', (e) => {
+            if (e.target === modalInfo) {
+                modalInfo.classList.add('hidden');
+            }
+        });
+    }
+
+    const selectPeriodoCusto = document.getElementById('dash-custo-periodo');
+    if (selectPeriodoCusto) {
+        selectPeriodoCusto.addEventListener('change', () => {
+            updateDashboard();
+        });
+    }
+}
+
+window.fecharModalInfo = () => {
+    const modalInfo = document.getElementById('modal-info-card');
+    if (modalInfo) modalInfo.classList.add('hidden');
+};
+
 function init() {
     loadState(); 
+    setupInfoButtons();
 }
 
 // --- LÓGICA DE META $ (Evoluída com Múltiplas Metas, Correção de Prazo, Histórico e Recorrência) ---

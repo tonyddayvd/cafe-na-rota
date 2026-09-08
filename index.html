@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/icon-512.png">
     <link rel="manifest" href="manifest.json">
     <title>Café na Rota</title>
-    <link rel="stylesheet" href="styles.css?v=20260908_1303">
+    <link rel="stylesheet" href="styles.css?v=20260908_1315">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Supabase JS Client -->
@@ -47,7 +47,13 @@
                 <div class="card stat-card">
                     <ion-icon name="wallet"></ion-icon>
                     <div>
-                        <p>Saldo em Caixa</p>
+                        <div class="card-header-info">
+                            <p>Saldo em Caixa</p>
+                            <div class="info-tooltip-wrapper">
+                                <button type="button" class="info-btn" data-info-title="Saldo em Caixa" data-info-text="Dinheiro físico disponível no caixa agora. Soma das vendas menos todas as saídas de despesas e retiradas pessoais." aria-label="Informações sobre Saldo em Caixa">i</button>
+                                <span class="info-tooltip-box">Dinheiro físico disponível no caixa agora. Soma das vendas menos todas as saídas de despesas e retiradas pessoais.</span>
+                            </div>
+                        </div>
                         <h4 id="dash-caixa-global">R$ 0,00</h4>
                     </div>
                 </div>
@@ -61,15 +67,50 @@
                 <div class="card stat-card">
                     <ion-icon name="calendar-outline"></ion-icon>
                     <div>
-                        <p>Lucro Semanal</p>
+                        <div class="card-header-info">
+                            <p>Lucro Semanal</p>
+                            <div class="info-tooltip-wrapper">
+                                <button type="button" class="info-btn" data-info-title="Lucro Semanal" data-info-text="Resultado do faturamento menos o custo de insumos (compras à vista). Não inclui suas retiradas pessoais (Pró-labore), mostrando a saúde real das vendas." aria-label="Informações sobre Lucro Semanal">i</button>
+                                <span class="info-tooltip-box">Resultado do faturamento menos o custo de insumos (compras à vista). Não inclui suas retiradas pessoais (Pró-labore), mostrando a saúde real das vendas.</span>
+                            </div>
+                        </div>
                         <h4 id="dash-lucro-sem">R$ 0,00</h4>
                     </div>
                 </div>
                 <div class="card stat-card">
                     <ion-icon name="calendar"></ion-icon>
                     <div>
-                        <p>Lucro Mensal</p>
+                        <div class="card-header-info">
+                            <p>Lucro Mensal</p>
+                            <div class="info-tooltip-wrapper">
+                                <button type="button" class="info-btn" data-info-title="Lucro Mensal" data-info-text="Resultado do faturamento menos o custo de insumos (compras à vista). Não inclui suas retiradas pessoais (Pró-labore), mostrando a saúde real das vendas." aria-label="Informações sobre Lucro Mensal">i</button>
+                                <span class="info-tooltip-box">Resultado do faturamento menos o custo de insumos (compras à vista). Não inclui suas retiradas pessoais (Pró-labore), mostrando a saúde real das vendas.</span>
+                            </div>
+                        </div>
                         <h4 id="dash-lucro-mes">R$ 0,00</h4>
+                    </div>
+                </div>
+                <div class="card stat-card card-full-width">
+                    <ion-icon name="cart-outline"></ion-icon>
+                    <div style="flex: 1;">
+                        <div class="card-header-info" style="justify-content: space-between; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <p>Custo de Produtos</p>
+                                <div class="info-tooltip-wrapper">
+                                    <button type="button" class="info-btn" data-info-title="Custo de Produtos" data-info-text="Soma exclusiva de tudo o que foi investido em mercadorias e insumos de estoque (compras à vista + compras no cartão) no período selecionado." aria-label="Informações sobre Custo de Produtos">i</button>
+                                    <span class="info-tooltip-box">Soma exclusiva de tudo o que foi investido em mercadorias e insumos de estoque (compras à vista + compras no cartão) no período selecionado.</span>
+                                </div>
+                            </div>
+                            <select id="dash-custo-periodo" class="custo-periodo-select" aria-label="Período do Custo">
+                                <option value="mes" selected>Este Mês (30d)</option>
+                                <option value="semana">Esta Semana (7d)</option>
+                                <option value="total">Total Acumulado</option>
+                            </select>
+                        </div>
+                        <h4 id="dash-custo-produtos">R$ 0,00</h4>
+                        <div id="dash-custo-detalhe" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                            À vista: R$ 0,00 | Cartão: R$ 0,00
+                        </div>
                     </div>
                 </div>
             </div>
@@ -119,12 +160,20 @@
                     <input type="date" id="saida-data">
                 </div>
                 <div class="input-group">
+                    <label for="saida-categoria">Tipo / Categoria da Saída</label>
+                    <select id="saida-categoria" required>
+                        <option value="operacional" selected>Despesa Operacional / Negócio (afeta o Lucro)</option>
+                        <option value="pro_labore">Retirada Pessoal / Pró-labore (não afeta o Lucro)</option>
+                    </select>
+                    <small class="var-text-muted text-xs" style="display:block; margin-top:4px;">*Retiradas pessoais afetam apenas o Saldo em Caixa físico, sem distorcer o Lucro das vendas.</small>
+                </div>
+                <div class="input-group">
                     <label for="saida-valor">Valor da Retirada/Compra (R$)</label>
                     <input type="number" id="saida-valor" step="0.01" min="0.01" placeholder="Ex: 15.00" required>
                 </div>
                 <div class="input-group">
                     <label for="saida-justificativa">Justificativa da Saída (Obrigatório)</label>
-                    <input type="text" id="saida-justificativa" placeholder="O que você comprou? Ex: Garrafa, Gelo..." required>
+                    <input type="text" id="saida-justificativa" placeholder="O que você comprou ou retirou? Ex: Gelo, Almoço, Pró-labore..." required>
                 </div>
                 <button type="submit" class="btn btn-danger btn-large">Registrar Saída</button>
             </form>
@@ -517,6 +566,18 @@
         </div>
     </div>
 
+    <!-- Modal Informativo dos Cards do Dashboard -->
+    <div id="modal-info-card" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 360px; text-align: center;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(217, 119, 54, 0.15); color: var(--primary-color); display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 12px auto;">
+                <ion-icon name="information-circle"></ion-icon>
+            </div>
+            <h3 id="modal-info-title" style="margin-bottom: 8px; font-size: 1.15rem; color: var(--text-main);">Informação</h3>
+            <p id="modal-info-text" style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 20px;"></p>
+            <button type="button" class="btn btn-primary" id="btn-fechar-modal-info" style="width: 100%;">Entendi</button>
+        </div>
+    </div>
+
     <!-- Registro de Service Worker para PWA -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -531,7 +592,7 @@
         }
     </script>
     
-    <!-- Forçando o navegador a não usar Cache (Cache Busting V25) -->
-    <script src="app.js?v=20260908_1303"></script>
+    <!-- Forçando o navegador a não usar Cache (Cache Busting V26) -->
+    <script src="app.js?v=20260908_1315"></script>
 </body>
 </html>

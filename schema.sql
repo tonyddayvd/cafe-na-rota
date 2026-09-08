@@ -47,15 +47,20 @@ CREATE TABLE entradas (
     valor_total NUMERIC(15,2) NOT NULL
 );
 
--- 5. Saídas (Despesas diversas)
+-- 5. Saídas (Despesas operacionais e retiradas de pró-labore)
 CREATE TABLE saidas (
     id SERIAL PRIMARY KEY,
     data_operacao TIMESTAMP DEFAULT NOW(),
     data_referencia DATE DEFAULT CURRENT_DATE,
     valor NUMERIC(15,2) NOT NULL,
     justificativa TEXT NOT NULL,
-    compra_id INTEGER -- Referência opcional à tabela de compras
+    compra_id INTEGER, -- Referência opcional à tabela de compras
+    categoria TEXT DEFAULT 'operacional' CHECK (categoria IN ('operacional', 'pro_labore'))
 );
+
+-- Caso a tabela saidas já exista no seu banco Supabase, execute este comando no SQL Editor:
+-- ALTER TABLE saidas ADD COLUMN IF NOT EXISTS categoria TEXT DEFAULT 'operacional' CHECK (categoria IN ('operacional', 'pro_labore'));
+
 
 -- 6. Compras de Estoque (Histórico de entradas de material)
 CREATE TABLE compras (
